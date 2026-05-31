@@ -76,23 +76,6 @@ button to wipe the cache.
 > **Security note**: The API key is stored in browser local storage for this MVP. It is not encrypted. Do not use this
 > extension on a shared or untrusted machine with a production API key.
 
-## Known issues
-
-- **`src/background/cache.js:canonicalizeUrl()` — Default port stripping ineffective (line 72)**  
-  The protocol is normalized to HTTPS before checking for default ports, so URLs like `http://example.com:80/` become `https://example.com:80/` (port not removed). *Proposed fix:* Strip ports before or during protocol normalization to ensure stable cache keys.
-
-- **`src/background/cache.js:canonicalizeUrl()` — Query parameter order affects cache key (line 84)**  
-  URLs with identical query params in different orders (e.g., `?a=1&b=2` vs `?b=2&a=1`) produce different canonical URLs, causing unnecessary cache misses. *Proposed fix:* Sort query parameters alphabetically before building the canonical URL.
-
-- **`src/background/cache.js:setEntry()` — Concurrent cache writes can lose entries (line 146)**  
-  The function performs a read-modify-write of the entire cache object in `browser.storage.local`. If `setEntry()` is called concurrently for different URLs, the last writer can overwrite earlier updates from stale snapshots. *Proposed fix:* Serialize cache writes or store entries under separate storage keys to avoid race conditions. (This helper is not used by the current extension flow, so it is non-blocking for Phase 2.)
-
-- **`src/background/index.js:summarizeAndCache()` — Stale error messages on success regeneration (line 68)**  
-  When `setEntry()` is called with `{ status: "success", aiTitle }` after a previous failure, the function merges the update into the existing entry but does not clear the `error` field. This leaves old error messages in the cached entry. *Proposed fix:* Explicitly clear the `error` field when setting status to "success".
-
-- **`src/background/index.js:summarizeAndCache()` — Stale aiTitle on failure (line 75)**  
-  When `setEntry()` is called after a failure, it merges the update into the existing entry but does not clear `aiTitle`, leaving stale generated titles in failed entries. This makes the cache state ambiguous for consumers. *Proposed fix:* Clear `aiTitle` when status is set to "failed".
-
 ## Branch layout
 
 | Branch | Contents |

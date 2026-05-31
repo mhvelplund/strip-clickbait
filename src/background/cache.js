@@ -13,6 +13,7 @@
  */
 
 const CACHE_STORAGE_KEY = "cache";
+let cacheWriteQueue = Promise.resolve();
 
 // ---------- Tracking params stripped during canonicalization ----------
 const TRACKING_PARAMS = new Set([
@@ -80,7 +81,14 @@ export function canonicalizeUrl(rawUrl) {
       params.delete(key);
     }
   }
-  u.search = params.toString();
+  const sortedParams = [...params.entries()].sort(([leftKey, leftValue], [rightKey, rightValue]) => {
+    const keyCompare = leftKey.localeCompare(rightKey);
+    if (keyCompare !== 0) {
+      return keyCompare;
+    }
+    return leftValue.localeCompare(rightValue);
+  });
+  u.search = new URLSearchParams(sortedParams).toString();
 
   if (u.pathname.length > 1 && u.pathname.endsWith("/")) {
     u.pathname = u.pathname.slice(0, -1);
@@ -125,24 +133,44 @@ export async function getEntry(rawUrl) {
  * @param {Partial<import('./cache.js').CacheEntry>} fields
  */
 export async function setEntry(rawUrl, fields) {
-  const key = canonicalizeUrl(rawUrl);
-  const cache = await loadCache();
-  const now = Date.now();
-  const existing = cache[key];
-  cache[key] = {
-    targetUrl: key,
-    aiTitle: "",
-    status: "pending",
-    createdAt: existing?.createdAt ?? now,
-    updatedAt: now,
-    error: null,
-    ...existing,
-    ...fields,
-    targetUrl: key,
-    updatedAt: now,
-  };
-  await saveCache(cache);
-  return cache[key];
+  const operation = cacheWriteQueue.catch(() => {}).then(async () => {
+    const key = canonicalizeUrl(rawUrl);
+    const cache = await loadCache();
+    const now = Date.now();
+    const existing = cache[key];
+    const nextEntry = {
+      targetUrl: key,
+      aiTitle: "",
+      status: "pending",
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+      error: null,
+      ...existing,
+      ...fields,
+      targetUrl: key,
+      updatedAt: now,
+    };
+
+    if (nextEntry.status === "pending") {
+      nextEntry.aiTitle = "";
+      nextEntry.error = null;
+    } else if (nextEntry.status === "success") {
+      nextEntry.error = null;
+    } else if (nextEntry.status === "failed") {
+      nextEntry.aiTitle = "";
+    }
+
+    cache[key] = nextEntry;
+    await saveCache(cache);
+    return nextEntry;
+  });
+
+  cacheWriteQueue = operation.then(
+    () => undefined,
+    () => undefined,
+  );
+
+  return operation;
 }
 
 /**
