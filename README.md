@@ -5,12 +5,15 @@ right from the context menu.
 
 ## What it does
 
+**Phase 3 (current):**
 1. Right-click any link → **Translate Clickbait**
 2. The extension fetches the linked article in the background.
-3. [OpenAI](https://platform.openai.com/) generates a concise, factual replacement title (≤ 1.5× the original title
-   length).
-4. The link text on the current page updates immediately to show the AI title, prefixed with 🤖.
-5. Any future visit to the same page reapplies cached titles automatically — no extra API calls.
+3. [OpenAI](https://platform.openai.com/) generates a concise, factual replacement title (≤ 1.5× the original title length).
+4. Results are cached in local storage for future visits to the same link.
+
+**Phase 4 (planned):**
+- The link text on the current page will update immediately to show the AI title, prefixed with 🤖.
+- Cached titles will be reapplied automatically on page load — no extra API calls needed.
 
 ## Project structure
 
@@ -77,6 +80,12 @@ Open the extension options page (toolbar icon → Manage Extension → Preferenc
 
 - **`src/background/cache.js:setEntry()` — Concurrent cache writes can lose entries (line 146)**  
   The function performs a read-modify-write of the entire cache object in `browser.storage.local`. If `setEntry()` is called concurrently for different URLs, the last writer can overwrite earlier updates from stale snapshots. *Proposed fix:* Serialize cache writes or store entries under separate storage keys to avoid race conditions. (This helper is not used by the current extension flow, so it is non-blocking for Phase 2.)
+
+- **`src/background/index.js:summarizeAndCache()` — Stale error messages on success regeneration (line 68)**  
+  When `setEntry()` is called with `{ status: "success", aiTitle }` after a previous failure, the function merges the update into the existing entry but does not clear the `error` field. This leaves old error messages in the cached entry. *Proposed fix:* Explicitly clear the `error` field when setting status to "success".
+
+- **`src/background/index.js:summarizeAndCache()` — Stale aiTitle on failure (line 75)**  
+  When `setEntry()` is called after a failure, it merges the update into the existing entry but does not clear `aiTitle`, leaving stale generated titles in failed entries. This makes the cache state ambiguous for consumers. *Proposed fix:* Clear `aiTitle` when status is set to "failed".
 
 ## Branch layout
 
