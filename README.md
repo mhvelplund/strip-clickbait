@@ -69,9 +69,14 @@ Open the extension options page (toolbar icon → Manage Extension → Preferenc
 
 ## Known issues
 
-- `src/background/cache.js:setEntry()` updates the whole cache object with a read-modify-write cycle. Concurrent writes
-  can lose entries because a later save may overwrite an earlier update from a stale snapshot. The helper is not used by
-  the current extension flow, but the bug should be fixed before wiring it into active code paths.
+- **`src/background/cache.js:canonicalizeUrl()` — Default port stripping ineffective (line 72)**  
+  The protocol is normalized to HTTPS before checking for default ports, so URLs like `http://example.com:80/` become `https://example.com:80/` (port not removed). *Proposed fix:* Strip ports before or during protocol normalization to ensure stable cache keys.
+
+- **`src/background/cache.js:canonicalizeUrl()` — Query parameter order affects cache key (line 84)**  
+  URLs with identical query params in different orders (e.g., `?a=1&b=2` vs `?b=2&a=1`) produce different canonical URLs, causing unnecessary cache misses. *Proposed fix:* Sort query parameters alphabetically before building the canonical URL.
+
+- **`src/background/cache.js:setEntry()` — Concurrent cache writes can lose entries (line 146)**  
+  The function performs a read-modify-write of the entire cache object in `browser.storage.local`. If `setEntry()` is called concurrently for different URLs, the last writer can overwrite earlier updates from stale snapshots. *Proposed fix:* Serialize cache writes or store entries under separate storage keys to avoid race conditions. (This helper is not used by the current extension flow, so it is non-blocking for Phase 2.)
 
 ## Branch layout
 
