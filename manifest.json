@@ -6,7 +6,8 @@
   "permissions": ["contextMenus", "storage", "activeTab", "tabs", "<all_urls>"],
   "background": {
     "scripts": ["src/background/index.js"],
-    "persistent": false
+    "persistent": false,
+    "type": "module"
   },
   "content_scripts": [
     {
