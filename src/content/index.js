@@ -7,6 +7,6 @@ browser.runtime.onMessage.addListener((message) => {
   console.debug("Clickbait translation event captured in content script", {
     linkUrl,
     sourceTabId,
-    pageUrl
+    pageUrl,
   });
 });

@@ -3,27 +3,15 @@
   "name": "Strip Clickbait",
   "version": "0.1.0",
   "description": "Translate clickbait links into descriptive AI summaries.",
-  "permissions": [
-    "contextMenus",
-    "storage",
-    "activeTab",
-    "tabs",
-    "<all_urls>"
-  ],
+  "permissions": ["contextMenus", "storage", "activeTab", "tabs", "<all_urls>"],
   "background": {
-    "scripts": [
-      "src/background/index.js"
-    ],
+    "scripts": ["src/background/index.js"],
     "persistent": false
   },
   "content_scripts": [
     {
-      "matches": [
-        "<all_urls>"
-      ],
-      "js": [
-        "src/content/index.js"
-      ],
+      "matches": ["<all_urls>"],
+      "js": ["src/content/index.js"],
       "run_at": "document_end"
     }
   ],
