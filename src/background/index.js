@@ -4,6 +4,7 @@ import {
   setEntry,
   withDedup,
   isInFlight,
+  getEntries,
 } from "./cache.js";
 import { extractArticle } from "./articleExtractor.js";
 import { generateTitle } from "./openaiClient.js";
@@ -78,6 +79,19 @@ async function summarizeAndCache(linkUrl, originalTitle, tabId) {
     await notifyTab(tabId, linkUrl, failed);
   }
 }
+
+// ---------- Message handler: cache reads for content scripts ----------
+
+browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type !== "get-cache-entries") return false;
+
+  const rawUrls = message.payload?.urls ?? [];
+  getEntries(rawUrls).then((entries) => sendResponse({ entries }));
+  // Return true to signal we'll call sendResponse asynchronously.
+  return true;
+});
+
+// ---------- Context menu click ----------
 
 browser.contextMenus.onClicked.addListener(async (info, tab) => {
   if (
