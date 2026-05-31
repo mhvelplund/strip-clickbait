@@ -27,6 +27,40 @@ export function withTimeout(promise, ms, label = "operation") {
 }
 
 /**
+ * Execute fetch with an AbortController-backed timeout so the underlying
+ * request is cancelled when the deadline expires.
+ *
+ * @param {RequestInfo | URL} input
+ * @param {RequestInit} [init]
+ * @param {number} ms
+ * @param {string} [label]
+ * @returns {Promise<Response>}
+ */
+export async function fetchWithTimeout(
+  input,
+  init,
+  ms,
+  label = "operation",
+) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error(`${label} timed out after ${ms}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
  * Retry `fn` up to `maxAttempts` times with exponential back-off.
  * Only retries on transient errors (network, 5xx); re-throws immediately on
  * 4xx-style errors since those won't be fixed by retrying.

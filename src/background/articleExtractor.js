@@ -15,7 +15,7 @@
  * swapped in at Phase 6 hardening with no API-surface change.
  */
 
-import { withTimeout, withRetry } from "./asyncUtils.js";
+import { fetchWithTimeout, withRetry } from "./asyncUtils.js";
 
 const MIN_CONTENT_LENGTH = 300;
 const MAX_CONTENT_LENGTH = 12000; // ~3 000 tokens; keep OpenAI costs low
@@ -48,8 +48,9 @@ const FETCH_TIMEOUT_MS = 15_000;
 export async function extractArticle(url) {
   const response = await withRetry(
     () =>
-      withTimeout(
-        fetch(url, { credentials: "omit", redirect: "follow" }),
+      fetchWithTimeout(
+        url,
+        { credentials: "omit", redirect: "follow" },
         FETCH_TIMEOUT_MS,
         "article fetch",
       ),

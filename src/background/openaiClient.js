@@ -7,7 +7,7 @@
  * longer string it is hard-clamped here before the result is stored.
  */
 
-import { withTimeout, withRetry } from "./asyncUtils.js";
+import { fetchWithTimeout, withRetry } from "./asyncUtils.js";
 
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 const SETTINGS_KEY = "settings";
@@ -114,8 +114,9 @@ export async function generateTitle(articleText, originalTitle) {
 
   const response = await withRetry(
     () =>
-      withTimeout(
-        fetch(OPENAI_API_URL, {
+      fetchWithTimeout(
+        OPENAI_API_URL,
+        {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -128,7 +129,7 @@ export async function generateTitle(articleText, originalTitle) {
             max_tokens: 120,
             response_format: { type: "json_object" },
           }),
-        }),
+        },
         API_TIMEOUT_MS,
         "OpenAI API request",
       ),
