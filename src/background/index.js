@@ -120,7 +120,9 @@ browser.contextMenus.onClicked.addListener(async (info, tab) => {
   // the content script sends it ahead of the pipeline via a message listener.
   const originalTitle = info.selectionText || "";
 
-  withDedup(linkUrl, () => summarizeAndCache(linkUrl, originalTitle, tabId)).catch((error) => {
+  withDedup(linkUrl, () =>
+    summarizeAndCache(linkUrl, originalTitle, tabId),
+  ).catch((error) => {
     console.error("Deduped summarization pipeline failed", linkUrl, error);
   });
 });

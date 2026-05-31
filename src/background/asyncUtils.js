@@ -18,7 +18,10 @@
 export function withTimeout(promise, ms, label = "operation") {
   let timer;
   const timeout = new Promise((_, reject) => {
-    timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+    timer = setTimeout(
+      () => reject(new Error(`${label} timed out after ${ms}ms`)),
+      ms,
+    );
   });
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
@@ -36,7 +39,10 @@ export function withTimeout(promise, ms, label = "operation") {
  * @param {(err: Error, attempt: number) => void} [opts.onRetry]
  * @returns {Promise<T>}
  */
-export async function withRetry(fn, { maxAttempts = 3, baseDelayMs = 500, onRetry } = {}) {
+export async function withRetry(
+  fn,
+  { maxAttempts = 3, baseDelayMs = 500, onRetry } = {},
+) {
   let lastError;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {

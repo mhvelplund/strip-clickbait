@@ -23,7 +23,7 @@ async function loadSettings() {
   const settings = stored[SETTINGS_KEY] ?? {};
   if (!settings.openaiApiKey) {
     throw new Error(
-      "No OpenAI API key configured. Open the extension options page to add one."
+      "No OpenAI API key configured. Open the extension options page to add one.",
     );
   }
   return {
@@ -93,7 +93,9 @@ function parseTitle(raw, maxLength) {
   }
 
   const title = parsed.title.trim();
-  return title.length <= maxLength ? title : title.slice(0, maxLength).trimEnd();
+  return title.length <= maxLength
+    ? title
+    : title.slice(0, maxLength).trimEnd();
 }
 
 /**
@@ -111,30 +113,33 @@ export async function generateTitle(articleText, originalTitle) {
   const messages = buildMessages(articleText, originalTitle, maxLength);
 
   const response = await withRetry(
-    () => withTimeout(
-      fetch(OPENAI_API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${openaiApiKey}`,
-        },
-        body: JSON.stringify({
-          model: openaiModel,
-          messages,
-          temperature: 0.3,
-          max_tokens: 120,
-          response_format: { type: "json_object" },
+    () =>
+      withTimeout(
+        fetch(OPENAI_API_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${openaiApiKey}`,
+          },
+          body: JSON.stringify({
+            model: openaiModel,
+            messages,
+            temperature: 0.3,
+            max_tokens: 120,
+            response_format: { type: "json_object" },
+          }),
         }),
-      }),
-      API_TIMEOUT_MS,
-      "OpenAI API request"
-    ),
-    { maxAttempts: 3, baseDelayMs: 1000 }
+        API_TIMEOUT_MS,
+        "OpenAI API request",
+      ),
+    { maxAttempts: 3, baseDelayMs: 1000 },
   );
 
   if (!response.ok) {
     const body = await response.text().catch(() => "");
-    throw new Error(`OpenAI API error ${response.status}: ${body.slice(0, 300)}`);
+    throw new Error(
+      `OpenAI API error ${response.status}: ${body.slice(0, 300)}`,
+    );
   }
 
   const data = await response.json();

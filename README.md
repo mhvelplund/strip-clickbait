@@ -70,7 +70,8 @@ Open the extension options page (toolbar icon → Manage Extension → Preferenc
 
 ### Cache management
 
-The options page shows a count of cached URLs (success / pending / failed) and provides a **Clear all cached titles** button to wipe the cache.
+The options page shows a count of cached URLs (success / pending / failed) and provides a **Clear all cached titles**
+button to wipe the cache.
 
 > **Security note**: The API key is stored in browser local storage for this MVP. It is not encrypted. Do not use this
 > extension on a shared or untrusted machine with a production API key.

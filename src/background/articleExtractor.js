@@ -47,12 +47,13 @@ const FETCH_TIMEOUT_MS = 15_000;
 
 export async function extractArticle(url) {
   const response = await withRetry(
-    () => withTimeout(
-      fetch(url, { credentials: "omit", redirect: "follow" }),
-      FETCH_TIMEOUT_MS,
-      "article fetch"
-    ),
-    { maxAttempts: 3, baseDelayMs: 500 }
+    () =>
+      withTimeout(
+        fetch(url, { credentials: "omit", redirect: "follow" }),
+        FETCH_TIMEOUT_MS,
+        "article fetch",
+      ),
+    { maxAttempts: 3, baseDelayMs: 500 },
   );
 
   if (!response.ok) {
@@ -64,7 +65,7 @@ export async function extractArticle(url) {
 
   // Remove noise elements that inflate text length without adding content.
   for (const el of doc.querySelectorAll(
-    "script, style, noscript, nav, header, footer, aside, [aria-hidden='true']"
+    "script, style, noscript, nav, header, footer, aside, [aria-hidden='true']",
   )) {
     el.remove();
   }
