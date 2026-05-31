@@ -67,6 +67,7 @@ Open the extension options page (toolbar icon → Manage Extension → Preferenc
 > **Security note**: The API key is stored in browser local storage for this MVP. It is not encrypted. Do not use this
 > extension on a shared or untrusted machine with a production API key.
 
+<<<<<<< HEAD
 ## Known issues
 
 - **`src/background/cache.js:canonicalizeUrl()` — Default port stripping ineffective (line 72)**  
@@ -78,6 +79,8 @@ Open the extension options page (toolbar icon → Manage Extension → Preferenc
 - **`src/background/cache.js:setEntry()` — Concurrent cache writes can lose entries (line 146)**  
   The function performs a read-modify-write of the entire cache object in `browser.storage.local`. If `setEntry()` is called concurrently for different URLs, the last writer can overwrite earlier updates from stale snapshots. *Proposed fix:* Serialize cache writes or store entries under separate storage keys to avoid race conditions. (This helper is not used by the current extension flow, so it is non-blocking for Phase 2.)
 
+=======
+>>>>>>> dcc014e (Phase 2: URL canonicalization, cache schema, in-flight dedupe)
 ## Branch layout
 
 | Branch | Contents |
