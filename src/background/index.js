@@ -4,6 +4,7 @@ import {
   setEntry,
   withDedup,
   isInFlight,
+  getEntries,
 } from "./cache.js";
 import { extractArticle } from "./articleExtractor.js";
 import { generateTitle } from "./openaiClient.js";
