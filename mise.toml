@@ -1,3 +1,6 @@
 [tools]
 gh = "latest"
 node = "lts"
+
+[shell_alias]
+gs = "gh stack"

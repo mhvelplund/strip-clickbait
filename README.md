@@ -67,6 +67,12 @@ Open the extension options page (toolbar icon → Manage Extension → Preferenc
 > **Security note**: The API key is stored in browser local storage for this MVP. It is not encrypted. Do not use this
 > extension on a shared or untrusted machine with a production API key.
 
+## Known issues
+
+- `src/background/cache.js:setEntry()` updates the whole cache object with a read-modify-write cycle. Concurrent writes
+  can lose entries because a later save may overwrite an earlier update from a stale snapshot. The helper is not used by
+  the current extension flow, but the bug should be fixed before wiring it into active code paths.
+
 ## Branch layout
 
 | Branch | Contents |
