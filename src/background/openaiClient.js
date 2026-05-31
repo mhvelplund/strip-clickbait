@@ -7,8 +7,11 @@
  * longer string it is hard-clamped here before the result is stored.
  */
 
+import { withTimeout, withRetry } from "./asyncUtils.js";
+
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 const SETTINGS_KEY = "settings";
+const API_TIMEOUT_MS = 30_000;
 
 /**
  * Load the user's API key and model from storage.
@@ -107,20 +110,27 @@ export async function generateTitle(articleText, originalTitle) {
 
   const messages = buildMessages(articleText, originalTitle, maxLength);
 
-  const response = await fetch(OPENAI_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${openaiApiKey}`,
-    },
-    body: JSON.stringify({
-      model: openaiModel,
-      messages,
-      temperature: 0.3,
-      max_tokens: 120,
-      response_format: { type: "json_object" },
-    }),
-  });
+  const response = await withRetry(
+    () => withTimeout(
+      fetch(OPENAI_API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${openaiApiKey}`,
+        },
+        body: JSON.stringify({
+          model: openaiModel,
+          messages,
+          temperature: 0.3,
+          max_tokens: 120,
+          response_format: { type: "json_object" },
+        }),
+      }),
+      API_TIMEOUT_MS,
+      "OpenAI API request"
+    ),
+    { maxAttempts: 3, baseDelayMs: 1000 }
+  );
 
   if (!response.ok) {
     const body = await response.text().catch(() => "");

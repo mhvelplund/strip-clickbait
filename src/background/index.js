@@ -8,7 +8,7 @@ import {
   getEntries,
 } from "./cache.js";
 import { extractArticle } from "./articleExtractor.js";
-import { generateTitle } from "./openaiClient.js";
+import { summarize } from "./summarizationProvider.js";
 import { log } from "./logger.js";
 
 const MENU_ID = "translate-clickbait";
@@ -71,7 +71,7 @@ async function summarizeAndCache(linkUrl, originalTitle, tabId) {
     const { text, title: pageTitle } = await extractArticle(linkUrl);
     // Use the page's <title> as a fallback if the link text is empty.
     const titleForPrompt = originalTitle.trim() || pageTitle || linkUrl;
-    const aiTitle = await generateTitle(text, titleForPrompt);
+    const aiTitle = await summarize(text, titleForPrompt);
     log.info("summarizeAndCache: success", { linkUrl, aiTitle });
     const success = await setEntry(linkUrl, { status: "success", aiTitle });
     await notifyTab(tabId, linkUrl, success);

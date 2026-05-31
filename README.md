@@ -17,7 +17,7 @@ right from the context menu.
 
 ## Project structure
 
-```
+```text
 strip-clickbait/
 ├── manifest.json                  # Extension manifest (MV2)
 ├── src/
@@ -63,7 +63,7 @@ Open the extension options page (toolbar icon → Manage Extension → Preferenc
 `src/options/index.html` in `about:debugging`).
 
 | Setting | Description |
-|---|---|
+| --- | --- |
 | **OpenAI API Key** | Your personal [OpenAI API key](https://platform.openai.com/api-keys). Stored in `browser.storage.local`. **Do not share.** |
 | **OpenAI Model** | Model used for summarization (default: `gpt-4o-mini`). |
 | **Diagnostic logging** | When enabled, `[SCB:DEBUG]` / `[SCB:INFO]` messages appear in the browser console. Warnings and errors are always logged. |
@@ -95,10 +95,30 @@ The options page shows a count of cached URLs (success / pending / failed) and p
 ## Branch layout
 
 | Branch | Contents |
-|---|---|
+| --- | --- |
 | `main` | Phase 1 — Extension scaffold, context-menu wiring |
 | `phase2` | Phase 2 — URL canonicalization, cache schema, in-flight dedupe |
 | `phase3` | Phase 3 — Article fetch + OpenAI summarize pipeline |
 | `phase4` | Phase 4 — Page link mutation + on-load restore |
-| `phase5` | Phase 5 — Settings UX + local testing docs |
-| `phase6` | Phase 6 — Hardening, retries, provider abstraction |
+| `phase5` | Phase 5 — Diagnostics logger, settings UX, cache management |
+| `phase6` | Phase 6 — Timeouts, retry/backoff, provider abstraction seam |
+
+## Architecture
+
+```text
+src/background/
+   index.js                 — orchestrator: context menu, pipeline, message bus
+   cache.js                 — URL canonicalization, storage CRUD, in-flight dedupe
+   articleExtractor.js      — fetch + DOM extraction of article body text
+   openaiClient.js          — OpenAI chat/completions API call
+   summarizationProvider.js — provider abstraction seam (selects active AI backend)
+   asyncUtils.js            — withTimeout / withRetry helpers
+   logger.js                — gated diagnostic logger ([SCB:*] console output)
+
+src/content/
+   index.js                 — classic script: DOM mutation, on-load restore, live updates
+
+src/options/
+   index.html               — settings UI
+   index.js                 — settings persistence + cache management
+```
