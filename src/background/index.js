@@ -2,7 +2,6 @@ import {
   canonicalizeUrl,
   getEntry,
   setEntry,
-  getEntries,
   withDedup,
   isInFlight,
   getEntries,
@@ -22,6 +21,8 @@ function createContextMenu() {
     });
   });
 }
+
+createContextMenu();
 
 browser.runtime.onInstalled.addListener(() => {
   createContextMenu();

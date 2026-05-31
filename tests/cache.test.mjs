@@ -46,7 +46,7 @@ async function importCacheModule(browser) {
   return import(`${cacheModuleUrl}?t=${Date.now()}-${Math.random()}`);
 }
 
-async function loadContentCanonicalize() {
+async function loadContentCanonicalize(URLSearchParamsImpl = URLSearchParams) {
   const source = await fs.readFile(contentScriptPath, "utf8");
   const match = source.match(
     /const TRACKING_PARAMS = new Set\(\[[\s\S]*?\]\);\n\nfunction canonicalizeUrl\(rawUrl\) \{[\s\S]*?\n\}/,
@@ -59,8 +59,20 @@ async function loadContentCanonicalize() {
   return vm.runInNewContext(`${match[0]}\ncanonicalizeUrl;`, {
     Set,
     URL,
-    URLSearchParams,
+    URLSearchParams: URLSearchParamsImpl,
   });
+}
+
+class NonIterableURLSearchParams extends URLSearchParams {
+  keys() {
+    const iterator = super.keys();
+    return { next: () => iterator.next() };
+  }
+
+  entries() {
+    const iterator = super.entries();
+    return { next: () => iterator.next() };
+  }
 }
 
 test("content script parses as a single classic script", async () => {
@@ -92,6 +104,27 @@ test("canonicalizeUrl sorts surviving query parameters consistently", async () =
 
   assert.equal(canonicalizeUrl(rawUrl), expected);
   assert.equal(contentCanonicalize(rawUrl), expected);
+});
+
+test("canonicalizeUrl works when URLSearchParams iterators are not iterable", async () => {
+  const storage = createBrowserStorage();
+  const originalURLSearchParams = globalThis.URLSearchParams;
+  globalThis.URLSearchParams = NonIterableURLSearchParams;
+
+  try {
+    const { canonicalizeUrl } = await importCacheModule(storage.browser);
+    const contentCanonicalize = await loadContentCanonicalize(
+      NonIterableURLSearchParams,
+    );
+    const rawUrl =
+      "https://www.example.com/article/?b=2&utm_source=newsletter&a=1&fbclid=tracking";
+    const expected = "https://example.com/article?a=1&b=2";
+
+    assert.equal(canonicalizeUrl(rawUrl), expected);
+    assert.equal(contentCanonicalize(rawUrl), expected);
+  } finally {
+    globalThis.URLSearchParams = originalURLSearchParams;
+  }
 });
 
 test("setEntry preserves both entries across concurrent writes", async () => {

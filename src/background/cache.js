@@ -76,19 +76,25 @@ export function canonicalizeUrl(rawUrl) {
   u.hash = "";
 
   const params = new URLSearchParams(u.search);
-  for (const key of [...params.keys()]) {
-    if (TRACKING_PARAMS.has(key.toLowerCase())) {
-      params.delete(key);
+  /** @type {Array<[string, string]>} */
+  const sortedParams = [];
+  params.forEach((value, key) => {
+    if (!TRACKING_PARAMS.has(key.toLowerCase())) {
+      sortedParams.push([key, value]);
     }
-  }
-  const sortedParams = [...params.entries()].sort(([leftKey, leftValue], [rightKey, rightValue]) => {
+  });
+  sortedParams.sort(([leftKey, leftValue], [rightKey, rightValue]) => {
     const keyCompare = leftKey.localeCompare(rightKey);
     if (keyCompare !== 0) {
       return keyCompare;
     }
     return leftValue.localeCompare(rightValue);
   });
-  u.search = new URLSearchParams(sortedParams).toString();
+  const normalizedParams = new URLSearchParams();
+  for (const [key, value] of sortedParams) {
+    normalizedParams.append(key, value);
+  }
+  u.search = normalizedParams.toString();
 
   if (u.pathname.length > 1 && u.pathname.endsWith("/")) {
     u.pathname = u.pathname.slice(0, -1);

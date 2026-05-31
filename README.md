@@ -8,7 +8,8 @@ right from the context menu.
 **Phase 3 (current):**
 1. Right-click any link → **Translate Clickbait**
 2. The extension fetches the linked article in the background.
-3. [OpenAI](https://platform.openai.com/) generates a concise, factual replacement title (≤ 1.5× the original title length).
+3. [OpenAI](https://platform.openai.com/) generates a concise, factual replacement title (≤ 1.5× the original title
+   length).
 4. Results are cached in local storage for future visits to the same link.
 
 **Phase 4 (planned):**
@@ -75,17 +76,6 @@ button to wipe the cache.
 
 > **Security note**: The API key is stored in browser local storage for this MVP. It is not encrypted. Do not use this
 > extension on a shared or untrusted machine with a production API key.
-
-## Branch layout
-
-| Branch | Contents |
-| --- | --- |
-| `main` | Phase 1 — Extension scaffold, context-menu wiring |
-| `phase2` | Phase 2 — URL canonicalization, cache schema, in-flight dedupe |
-| `phase3` | Phase 3 — Article fetch + OpenAI summarize pipeline |
-| `phase4` | Phase 4 — Page link mutation + on-load restore |
-| `phase5` | Phase 5 — Diagnostics logger, settings UX, cache management |
-| `phase6` | Phase 6 — Timeouts, retry/backoff, provider abstraction seam |
 
 ## Architecture
 
