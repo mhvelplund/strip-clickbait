@@ -18,32 +18,53 @@
 
 const EMOJI_SUCCESS = "🤖";
 const EMOJI_PENDING = "⏳";
-const EMOJI_FAILED  = "⚠️";
+const EMOJI_FAILED = "⚠️";
 
 const ATTR_ORIGINAL = "data-scb-original";
-const ATTR_KEY      = "data-scb-key";
+const ATTR_KEY = "data-scb-key";
 
 // ---------- Inline canonicalizeUrl (kept in sync with cache.js) ----------
 
 const TRACKING_PARAMS = new Set([
-  "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term",
-  "utm_id", "utm_source_platform",
-  "gclid", "gclsrc", "dclid",
-  "fbclid", "fref",
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_content",
+  "utm_term",
+  "utm_id",
+  "utm_source_platform",
+  "gclid",
+  "gclsrc",
+  "dclid",
+  "fbclid",
+  "fref",
   "msclkid",
-  "mc_cid", "mc_eid",
-  "ref", "referrer",
-  "click_id", "c_id", "aff_id", "tracking_id",
-  "sid", "tid", "visitor_id",
+  "mc_cid",
+  "mc_eid",
+  "ref",
+  "referrer",
+  "click_id",
+  "c_id",
+  "aff_id",
+  "tracking_id",
+  "sid",
+  "tid",
+  "visitor_id",
 ]);
 
 function canonicalizeUrl(rawUrl) {
   let u;
-  try { u = new URL(rawUrl); } catch { return rawUrl; }
+  try {
+    u = new URL(rawUrl);
+  } catch {
+    return rawUrl;
+  }
   u.protocol = "https:";
   u.hostname = u.hostname.toLowerCase().replace(/^www\./, "");
-  if ((u.port === "80" && u.protocol === "http:") ||
-      (u.port === "443" && u.protocol === "https:")) {
+  if (
+    (u.port === "80" && u.protocol === "http:") ||
+    (u.port === "443" && u.protocol === "https:")
+  ) {
     u.port = "";
   }
   u.hash = "";
@@ -51,7 +72,14 @@ function canonicalizeUrl(rawUrl) {
   for (const key of [...params.keys()]) {
     if (TRACKING_PARAMS.has(key.toLowerCase())) params.delete(key);
   }
-  u.search = params.toString();
+  const sortedParams = [...params.entries()].sort(
+    ([leftKey, leftValue], [rightKey, rightValue]) => {
+      const keyCompare = leftKey.localeCompare(rightKey);
+      if (keyCompare !== 0) return keyCompare;
+      return leftValue.localeCompare(rightValue);
+    },
+  );
+  u.search = new URLSearchParams(sortedParams).toString();
   if (u.pathname.length > 1 && u.pathname.endsWith("/")) {
     u.pathname = u.pathname.slice(0, -1);
   }
@@ -105,7 +133,7 @@ async function fetchCacheEntries(rawUrls) {
 
 async function restoreFromCache(anchors) {
   const list = Array.from(anchors).filter(
-    (a) => a.href && a.href.startsWith("http")
+    (a) => a.href && a.href.startsWith("http"),
   );
   if (list.length === 0) return;
 
@@ -156,4 +184,3 @@ browser.runtime.onMessage.addListener((message) => {
     }
   }
 });
-

@@ -17,7 +17,7 @@ right from the context menu.
 
 ## Project structure
 
-```
+```text
 strip-clickbait/
 ├── manifest.json                  # Extension manifest (MV2)
 ├── src/
@@ -63,42 +63,46 @@ Open the extension options page (toolbar icon → Manage Extension → Preferenc
 `src/options/index.html` in `about:debugging`).
 
 | Setting | Description |
-|---|---|
+| --- | --- |
 | **OpenAI API Key** | Your personal [OpenAI API key](https://platform.openai.com/api-keys). Stored in `browser.storage.local`. **Do not share.** |
 | **OpenAI Model** | Model used for summarization (default: `gpt-4o-mini`). |
 | **Diagnostic logging** | When enabled, `[SCB:DEBUG]` / `[SCB:INFO]` messages appear in the browser console. Warnings and errors are always logged. |
 
 ### Cache management
 
-The options page shows a count of cached URLs (success / pending / failed) and provides a **Clear all cached titles** button to wipe the cache.
+The options page shows a count of cached URLs (success / pending / failed) and provides a **Clear all cached titles**
+button to wipe the cache.
 
 > **Security note**: The API key is stored in browser local storage for this MVP. It is not encrypted. Do not use this
 > extension on a shared or untrusted machine with a production API key.
 
-## Known issues
-
-- **`src/background/cache.js:canonicalizeUrl()` — Default port stripping ineffective (line 72)**  
-  The protocol is normalized to HTTPS before checking for default ports, so URLs like `http://example.com:80/` become `https://example.com:80/` (port not removed). *Proposed fix:* Strip ports before or during protocol normalization to ensure stable cache keys.
-
-- **`src/background/cache.js:canonicalizeUrl()` — Query parameter order affects cache key (line 84)**  
-  URLs with identical query params in different orders (e.g., `?a=1&b=2` vs `?b=2&a=1`) produce different canonical URLs, causing unnecessary cache misses. *Proposed fix:* Sort query parameters alphabetically before building the canonical URL.
-
-- **`src/background/cache.js:setEntry()` — Concurrent cache writes can lose entries (line 146)**  
-  The function performs a read-modify-write of the entire cache object in `browser.storage.local`. If `setEntry()` is called concurrently for different URLs, the last writer can overwrite earlier updates from stale snapshots. *Proposed fix:* Serialize cache writes or store entries under separate storage keys to avoid race conditions. (This helper is not used by the current extension flow, so it is non-blocking for Phase 2.)
-
-- **`src/background/index.js:summarizeAndCache()` — Stale error messages on success regeneration (line 68)**  
-  When `setEntry()` is called with `{ status: "success", aiTitle }` after a previous failure, the function merges the update into the existing entry but does not clear the `error` field. This leaves old error messages in the cached entry. *Proposed fix:* Explicitly clear the `error` field when setting status to "success".
-
-- **`src/background/index.js:summarizeAndCache()` — Stale aiTitle on failure (line 75)**  
-  When `setEntry()` is called after a failure, it merges the update into the existing entry but does not clear `aiTitle`, leaving stale generated titles in failed entries. This makes the cache state ambiguous for consumers. *Proposed fix:* Clear `aiTitle` when status is set to "failed".
-
 ## Branch layout
 
 | Branch | Contents |
-|---|---|
+| --- | --- |
 | `main` | Phase 1 — Extension scaffold, context-menu wiring |
 | `phase2` | Phase 2 — URL canonicalization, cache schema, in-flight dedupe |
 | `phase3` | Phase 3 — Article fetch + OpenAI summarize pipeline |
 | `phase4` | Phase 4 — Page link mutation + on-load restore |
-| `phase5` | Phase 5 — Settings UX + local testing docs |
-| `phase6` | Phase 6 — Hardening, retries, provider abstraction |
+| `phase5` | Phase 5 — Diagnostics logger, settings UX, cache management |
+| `phase6` | Phase 6 — Timeouts, retry/backoff, provider abstraction seam |
+
+## Architecture
+
+```text
+src/background/
+   index.js                 — orchestrator: context menu, pipeline, message bus
+   cache.js                 — URL canonicalization, storage CRUD, in-flight dedupe
+   articleExtractor.js      — fetch + DOM extraction of article body text
+   openaiClient.js          — OpenAI chat/completions API call
+   summarizationProvider.js — provider abstraction seam (selects active AI backend)
+   asyncUtils.js            — withTimeout / withRetry helpers
+   logger.js                — gated diagnostic logger ([SCB:*] console output)
+
+src/content/
+   index.js                 — classic script: DOM mutation, on-load restore, live updates
+
+src/options/
+   index.html               — settings UI
+   index.js                 — settings persistence + cache management
+```
