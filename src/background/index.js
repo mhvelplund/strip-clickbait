@@ -5,6 +5,8 @@ import {
   withDedup,
   isInFlight,
 } from "./cache.js";
+import { extractArticle } from "./articleExtractor.js";
+import { generateTitle } from "./openaiClient.js";
 
 const MENU_ID = "translate-clickbait";
 
@@ -26,6 +28,55 @@ browser.runtime.onStartup.addListener(() => {
   createContextMenu();
 });
 
+/**
+ * Notify the content script in a tab about a cache entry update.
+ * Silently ignores errors (e.g. tab closed, content script not injected).
+ *
+ * @param {number} tabId
+ * @param {string} linkUrl
+ * @param {import('./cache.js').CacheEntry} entry
+ */
+async function notifyTab(tabId, linkUrl, entry) {
+  try {
+    await browser.tabs.sendMessage(tabId, {
+      type: "translate-clickbait-result",
+      payload: { linkUrl, entry },
+    });
+  } catch {
+    // Tab may have been closed or the content script may not be ready.
+  }
+}
+
+/**
+ * Fetch, summarize, and cache the article at `linkUrl`.
+ * Sends status updates to the originating tab at each stage.
+ *
+ * @param {string} linkUrl       - Raw link URL from context-menu click.
+ * @param {string} originalTitle - Visible link text at click time.
+ * @param {number} tabId         - Tab to notify.
+ */
+async function summarizeAndCache(linkUrl, originalTitle, tabId) {
+  // Mark as pending immediately so the content script can show a spinner.
+  const pending = await setEntry(linkUrl, { status: "pending" });
+  await notifyTab(tabId, linkUrl, pending);
+
+  try {
+    const { text, title: pageTitle } = await extractArticle(canonicalizeUrl(linkUrl));
+    // Use the page's <title> as a fallback if the link text is empty.
+    const titleForPrompt = originalTitle.trim() || pageTitle || linkUrl;
+    const aiTitle = await generateTitle(text, titleForPrompt);
+    const success = await setEntry(linkUrl, { status: "success", aiTitle });
+    await notifyTab(tabId, linkUrl, success);
+  } catch (error) {
+    console.error("Summarization failed", linkUrl, error);
+    const failed = await setEntry(linkUrl, {
+      status: "failed",
+      error: error.message ?? String(error),
+    });
+    await notifyTab(tabId, linkUrl, failed);
+  }
+}
+
 browser.contextMenus.onClicked.addListener(async (info, tab) => {
   if (
     info.menuItemId !== MENU_ID ||
@@ -36,20 +87,17 @@ browser.contextMenus.onClicked.addListener(async (info, tab) => {
     return;
   }
 
-  const clickContext = {
-    linkUrl: info.linkUrl,
-    sourceTabId: tab.id,
-    pageUrl: info.pageUrl || tab.url || null,
-  };
+  const { linkUrl } = info;
+  const tabId = tab.id;
 
-  console.debug("Translate Clickbait requested", clickContext);
-
-  try {
-    await browser.tabs.sendMessage(tab.id, {
-      type: "translate-clickbait-requested",
-      payload: clickContext,
-    });
-  } catch (error) {
-    console.debug("Content script not ready for tab", tab.id, error);
+  // If already in flight (e.g. double-click), skip a second request.
+  if (isInFlight(linkUrl)) {
+    return;
   }
+
+  // originalTitle is not directly available from contextMenus API;
+  // the content script sends it ahead of the pipeline via a message listener.
+  const originalTitle = info.selectionText || "";
+
+  withDedup(linkUrl, () => summarizeAndCache(linkUrl, originalTitle, tabId));
 });
