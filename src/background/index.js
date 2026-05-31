@@ -61,7 +61,9 @@ async function summarizeAndCache(linkUrl, originalTitle, tabId) {
   await notifyTab(tabId, linkUrl, pending);
 
   try {
-    const { text, title: pageTitle } = await extractArticle(canonicalizeUrl(linkUrl));
+    // Fetch the raw URL, but use canonicalized URL as the cache key.
+    // (canonicalizeUrl rewrites scheme to https: and strips www., which may fail on HTTP-only or host-specific content)
+    const { text, title: pageTitle } = await extractArticle(linkUrl);
     // Use the page's <title> as a fallback if the link text is empty.
     const titleForPrompt = originalTitle.trim() || pageTitle || linkUrl;
     const aiTitle = await generateTitle(text, titleForPrompt);
@@ -99,5 +101,7 @@ browser.contextMenus.onClicked.addListener(async (info, tab) => {
   // the content script sends it ahead of the pipeline via a message listener.
   const originalTitle = info.selectionText || "";
 
-  withDedup(linkUrl, () => summarizeAndCache(linkUrl, originalTitle, tabId));
+  withDedup(linkUrl, () => summarizeAndCache(linkUrl, originalTitle, tabId)).catch((error) => {
+    console.error("Deduped summarization pipeline failed", linkUrl, error);
+  });
 });
