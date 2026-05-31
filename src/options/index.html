@@ -32,6 +32,22 @@
       padding: 8px;
     }
 
+    .checkbox-field {
+      flex-direction: row;
+      align-items: center;
+      gap: 8px;
+    }
+
+    hr {
+      margin: 24px 0;
+      border: none;
+      border-top: 1px solid #ccc;
+    }
+
+    #cache-section h2 {
+      margin-top: 0;
+    }
+
     #status {
       min-height: 1.5em;
     }
@@ -41,12 +57,13 @@
 <body>
   <main>
     <h1>Strip Clickbait</h1>
-    <p>Phase 1 scaffolding: configure extension settings for later phases.</p>
+    <p>Configure the extension. Settings are stored in browser local storage.</p>
 
     <form id="settings-form">
       <label class="field" for="openai-api-key">
         <span>OpenAI API Key</span>
-        <input id="openai-api-key" name="openaiApiKey" type="password" autocomplete="off" />
+        <input id="openai-api-key" name="openaiApiKey" type="password" autocomplete="off"
+          placeholder="sk-…" />
       </label>
 
       <label class="field" for="openai-model">
@@ -54,10 +71,23 @@
         <input id="openai-model" name="openaiModel" type="text" value="gpt-4o-mini" />
       </label>
 
+      <label class="field checkbox-field" for="diagnostics">
+        <input id="diagnostics" name="diagnosticsEnabled" type="checkbox" />
+        <span>Enable diagnostic logging (browser console)</span>
+      </label>
+
       <button type="submit">Save Settings</button>
     </form>
 
     <p id="status" aria-live="polite"></p>
+
+    <hr />
+
+    <section id="cache-section">
+      <h2>Cache</h2>
+      <p id="cache-count">Loading…</p>
+      <button type="button" id="clear-cache">Clear all cached titles</button>
+    </section>
   </main>
 
   <script src="index.js"></script>
