@@ -102,6 +102,10 @@ function keyFor(a) {
   return a.dataset.scbKey;
 }
 
+function isTextLink(a) {
+  return (a.textContent ?? "").trim().length > 0;
+}
+
 function applyEntry(a, entry) {
   if (!a.hasAttribute(ATTR_ORIGINAL)) {
     a.setAttribute(ATTR_ORIGINAL, a.textContent);
@@ -140,7 +144,7 @@ async function fetchCacheEntries(rawUrls) {
 
 async function restoreFromCache(anchors) {
   const list = Array.from(anchors).filter(
-    (a) => a.href && a.href.startsWith("http"),
+    (a) => a.href && a.href.startsWith("http") && isTextLink(a),
   );
   if (list.length === 0) return;
 
@@ -178,7 +182,15 @@ observer.observe(document.body, { childList: true, subtree: true });
 // ---------- Live update listener ----------
 
 browser.runtime.onMessage.addListener((message) => {
-  if (!message || message.type !== "translate-clickbait-result") return;
+  if (!message) return;
+
+  if (message.type === "can-translate-link") {
+    const linkUrl = message.payload?.linkUrl;
+    const eligible = !!linkUrl && hasTextLinkForUrl(linkUrl);
+    return Promise.resolve({ eligible });
+  }
+
+  if (message.type !== "translate-clickbait-result") return;
 
   const { linkUrl, entry } = message.payload ?? {};
   if (!linkUrl || !entry) return;
@@ -186,8 +198,20 @@ browser.runtime.onMessage.addListener((message) => {
   const canonicalKey = canonicalizeUrl(linkUrl);
 
   for (const a of document.querySelectorAll("a[href]")) {
-    if (keyFor(a) === canonicalKey) {
+    if (keyFor(a) === canonicalKey && isTextLink(a)) {
       applyEntry(a, entry);
     }
   }
 });
+
+function hasTextLinkForUrl(linkUrl) {
+  const canonicalKey = canonicalizeUrl(linkUrl);
+
+  for (const a of document.querySelectorAll("a[href]")) {
+    if (keyFor(a) === canonicalKey && isTextLink(a)) {
+      return true;
+    }
+  }
+
+  return false;
+}

@@ -25,7 +25,7 @@ import { generateTitle as openaiGenerateTitle } from "./openaiClient.js";
 /**
  * @typedef {Object} SummarizationProvider
  * @property {string} id
- * @property {(articleText: string, originalTitle: string) => Promise<string>} generateTitle
+ * @property {(articleText: string, originalTitle: string, articleLanguage?: string) => Promise<string>} generateTitle
  */
 
 /** @type {SummarizationProvider} */

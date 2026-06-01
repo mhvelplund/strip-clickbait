@@ -37,15 +37,24 @@ async function loadSettings() {
  *
  * @param {string} articleText
  * @param {string} originalTitle
+ * @param {string} articleLanguage
  * @param {number} maxLength
  * @returns {Array<{role: string, content: string}>}
  */
-function buildMessages(articleText, originalTitle, maxLength) {
+export function buildMessages(
+  articleText,
+  originalTitle,
+  articleLanguage,
+  maxLength,
+) {
   const system = `You are a professional headline editor. Your job is to replace \
 sensationalist or misleading article titles with factual, informative ones.
 
 Rules:
 - The replacement title MUST be ≤ ${maxLength} characters (original: ${originalTitle.length}).
+- The replacement title MUST be in the same language as the article.
+- If the article language is known, keep the title in that language.
+- If the article language is unknown, infer it from the article text and keep the result in that language.
 - Do NOT use clickbait language, ALL-CAPS words, ellipsis, or rhetorical questions.
 - Use active voice and focus on the main factual claim.
 - Output ONLY valid JSON — no markdown fences, no extra text.
@@ -56,6 +65,8 @@ Required JSON format:
 }`;
 
   const user = `Original title: "${originalTitle}"
+
+Article language: ${articleLanguage || "unknown"}
 
 Article text (excerpt):
 ${articleText.slice(0, 3000)}`;
@@ -103,14 +114,24 @@ function parseTitle(raw, maxLength) {
  *
  * @param {string} articleText   - Extracted article body text.
  * @param {string} originalTitle - The current (clickbait) link text.
+ * @param {string} articleLanguage - Best-effort article language hint.
  * @returns {Promise<string>}    - The AI-generated replacement title.
  * @throws {Error}               - On network failure, API error, or missing key.
  */
-export async function generateTitle(articleText, originalTitle) {
+export async function generateTitle(
+  articleText,
+  originalTitle,
+  articleLanguage = "",
+) {
   const { openaiApiKey, openaiModel } = await loadSettings();
   const maxLength = Math.floor(originalTitle.length * 1.5);
 
-  const messages = buildMessages(articleText, originalTitle, maxLength);
+  const messages = buildMessages(
+    articleText,
+    originalTitle,
+    articleLanguage,
+    maxLength,
+  );
 
   const response = await withRetry(
     () =>

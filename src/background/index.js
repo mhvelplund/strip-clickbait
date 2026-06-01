@@ -69,10 +69,10 @@ async function summarizeAndCache(linkUrl, originalTitle, tabId) {
   try {
     // Fetch the raw URL, but use canonicalized URL as the cache key.
     // (canonicalizeUrl rewrites scheme to https: and strips www., which may fail on HTTP-only or host-specific content)
-    const { text, title: pageTitle } = await extractArticle(linkUrl);
+    const { text, title: pageTitle, language } = await extractArticle(linkUrl);
     // Use the page's <title> as a fallback if the link text is empty.
     const titleForPrompt = originalTitle.trim() || pageTitle || linkUrl;
-    const aiTitle = await summarize(text, titleForPrompt);
+    const aiTitle = await summarize(text, titleForPrompt, language);
     log.info("summarizeAndCache: success", { linkUrl, aiTitle });
     const success = await setEntry(linkUrl, { status: "success", aiTitle });
     await notifyTab(tabId, linkUrl, success);
@@ -111,6 +111,19 @@ browser.contextMenus.onClicked.addListener(async (info, tab) => {
 
   const { linkUrl } = info;
   const tabId = tab.id;
+
+  try {
+    const response = await browser.tabs.sendMessage(tabId, {
+      type: "can-translate-link",
+      payload: { linkUrl },
+    });
+    if (!response?.eligible) {
+      return;
+    }
+  } catch (error) {
+    log.debug("Skipping translation eligibility check", tabId, error?.message);
+    return;
+  }
 
   // If already in flight (e.g. double-click), skip a second request.
   if (isInFlight(linkUrl)) {
