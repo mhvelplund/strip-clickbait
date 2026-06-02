@@ -1,5 +1,7 @@
 # Strip Clickbait
 
+![Strip Clickbait](./icons/icon-128.png)
+
 A Firefox WebExtension (Manifest V2) that translates clickbait article link text into plain, descriptive AI summaries —
 right from the context menu.
 
