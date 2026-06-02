@@ -5,14 +5,16 @@ right from the context menu.
 
 ## What it does
 
-**Phase 3 (current):**
+**Phase 3 (current):**  
+
 1. Right-click any link → **Translate Clickbait**
 2. The extension fetches the linked article in the background.
-3. [OpenAI](https://platform.openai.com/) generates a concise, factual replacement title (≤ 1.5× the original title
+3. [OpenAI](https://platform.openai.com/) generates a concise, factual replacement title (≤ 2.0× the original title
    length).
 4. Results are cached in local storage for future visits to the same link.
 
-**Phase 4 (planned):**
+**Phase 4 (planned):**  
+
 - The link text on the current page will update immediately to show the AI title, prefixed with 🤖.
 - Cached titles will be reapplied automatically on page load — no extra API calls needed.
 
@@ -67,6 +69,7 @@ Open the extension options page (toolbar icon → Manage Extension → Preferenc
 | --- | --- |
 | **OpenAI API Key** | Your personal [OpenAI API key](https://platform.openai.com/api-keys). Stored in `browser.storage.local`. **Do not share.** |
 | **OpenAI Model** | Model used for summarization (default: `gpt-4o-mini`). |
+| **Max title length factor** | Multiplier used for generated title length limit (`floor(originalTitle.length * factor)`, default: `2.0`). |
 | **Diagnostic logging** | When enabled, `[SCB:DEBUG]` / `[SCB:INFO]` messages appear in the browser console. Warnings and errors are always logged. |
 
 ### Cache management
