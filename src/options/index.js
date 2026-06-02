@@ -1,7 +1,7 @@
 const SETTINGS_KEY = "settings";
 const DIAGNOSTICS_KEY = "diagnosticsEnabled";
 const CACHE_KEY = "cache";
-const DEFAULT_MAX_LENGTH_FACTOR = 1.5;
+const DEFAULT_MAX_LENGTH_FACTOR = 2.0;
 
 function parseMaxLengthFactor(value) {
   const numericValue = Number(value);
@@ -24,8 +24,7 @@ async function loadSettings() {
   const settings = stored[SETTINGS_KEY] || {};
 
   document.getElementById("openai-api-key").value = settings.openaiApiKey || "";
-  document.getElementById("openai-model").value =
-    settings.openaiModel || "gpt-4o-mini";
+  document.getElementById("openai-model").value = "gpt-4o-mini";
   document.getElementById("openai-max-length-factor").value = String(
     parseMaxLengthFactor(settings.openaiMaxLengthFactor),
   );
