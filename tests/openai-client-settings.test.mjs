@@ -72,7 +72,7 @@ test("generateTitle uses configured max title length factor", async () => {
   }
 });
 
-test("generateTitle defaults max title length factor to 1.5", async () => {
+test("generateTitle defaults max title length factor to 2.0", async () => {
   const requests = [];
   const restoreGlobals = usePatchedGlobals({
     browser: {
