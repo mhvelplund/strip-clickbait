@@ -109,7 +109,7 @@ test("generateTitle defaults max title length factor to 2.0", async () => {
     assert.equal(requests.length, 1);
     assert.match(
       requests[0].messages[0].content,
-      /MUST be ≤ 15 characters \(original: 10\)/,
+      /MUST be ≤ 20 characters \(original: 10\)/,
     );
   } finally {
     restoreGlobals();
