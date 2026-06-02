@@ -9,8 +9,8 @@ right from the context menu.
 
 1. Right-click any link → **Translate Clickbait**
 2. The extension fetches the linked article in the background.
-3. [OpenAI](https://platform.openai.com/) generates a concise, factual replacement title (≤ 2.0× the original title
-   length).
+3. [OpenAI](https://platform.openai.com/) generates a concise, factual replacement title (≤ factor× the original title
+   length; default: 2.0×).
 4. Results are cached in local storage for future visits to the same link.
 
 **Phase 4 (planned):**  
