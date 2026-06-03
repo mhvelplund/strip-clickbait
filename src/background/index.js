@@ -62,9 +62,13 @@ browser.contextMenus.onShown.addListener(async (info, tab) => {
     }
   }
 
-  await browser.contextMenus.update(MENU_ID, { visible });
-  await browser.contextMenus.update(MENU_ALL_ID, { visible: visibleAll });
-  browser.contextMenus.refresh();
+  try {
+    await browser.contextMenus.update(MENU_ID, { visible });
+    await browser.contextMenus.update(MENU_ALL_ID, { visible: visibleAll });
+    await browser.contextMenus.refresh();
+  } catch (error) {
+    log.debug("Failed to update context menu visibility", tab?.id, error?.message);
+  }
 });
 
 /**
