@@ -131,6 +131,7 @@ browser.contextMenus.onClicked.addListener(async (info, tab) => {
 
   const { linkUrl } = info;
   const tabId = tab.id;
+  let originalTitle = info.selectionText || "";
 
   try {
     const response = await browser.tabs.sendMessage(tabId, {
@@ -140,6 +141,7 @@ browser.contextMenus.onClicked.addListener(async (info, tab) => {
     if (!response?.eligible) {
       return;
     }
+    originalTitle = response?.originalTitle?.trim() || originalTitle;
   } catch (error) {
     log.debug("Skipping translation eligibility check", tabId, error?.message);
     return;
@@ -149,10 +151,6 @@ browser.contextMenus.onClicked.addListener(async (info, tab) => {
   if (isInFlight(linkUrl)) {
     return;
   }
-
-  // originalTitle is not directly available from contextMenus API;
-  // the content script sends it ahead of the pipeline via a message listener.
-  const originalTitle = info.selectionText || "";
 
   withDedup(linkUrl, () =>
     summarizeAndCache(linkUrl, originalTitle, tabId),

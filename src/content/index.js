@@ -102,26 +102,45 @@ function keyFor(a) {
   return a.dataset.scbKey;
 }
 
+function originalTitleForLink(a) {
+  const text = (a.textContent ?? "").trim();
+  if (text.length > 0) {
+    return text;
+  }
+  return (a.getAttribute("aria-label") ?? "").trim();
+}
+
 function isTextLink(a) {
-  return (a.textContent ?? "").trim().length > 0;
+  return originalTitleForLink(a).length > 0;
 }
 
 function applyEntry(a, entry) {
+  const hasAriaLabel = a.hasAttribute("aria-label");
   if (!a.hasAttribute(ATTR_ORIGINAL)) {
-    a.setAttribute(ATTR_ORIGINAL, a.textContent);
+    a.setAttribute(ATTR_ORIGINAL, originalTitleForLink(a));
   }
+  const originalTitle = a.getAttribute(ATTR_ORIGINAL) ?? "";
   switch (entry.status) {
     case "success":
       a.textContent = `${EMOJI_SUCCESS} ${entry.aiTitle}`;
-      a.title = `AI summary. Original: ${a.getAttribute(ATTR_ORIGINAL)}`;
+      a.title = `AI summary. Original: ${originalTitle}`;
+      if (hasAriaLabel) {
+        a.setAttribute("aria-label", entry.aiTitle);
+      }
       break;
     case "pending":
-      a.textContent = `${EMOJI_PENDING} ${a.getAttribute(ATTR_ORIGINAL)}`;
+      a.textContent = `${EMOJI_PENDING} ${originalTitle}`;
       a.title = "Summarizing…";
+      if (hasAriaLabel && originalTitle) {
+        a.setAttribute("aria-label", originalTitle);
+      }
       break;
     case "failed":
-      a.textContent = `${EMOJI_FAILED} ${a.getAttribute(ATTR_ORIGINAL)}`;
+      a.textContent = `${EMOJI_FAILED} ${originalTitle}`;
       a.title = `Summary failed: ${entry.error ?? "unknown error"}`;
+      if (hasAriaLabel && originalTitle) {
+        a.setAttribute("aria-label", originalTitle);
+      }
       break;
   }
 }
@@ -186,8 +205,11 @@ browser.runtime.onMessage.addListener((message) => {
 
   if (message.type === "can-translate-link") {
     const linkUrl = message.payload?.linkUrl;
-    const eligible = !!linkUrl && hasTextLinkForUrl(linkUrl);
-    return Promise.resolve({ eligible });
+    const originalTitle = linkUrl ? getOriginalTitleForUrl(linkUrl) : "";
+    return Promise.resolve({
+      eligible: Boolean(originalTitle),
+      originalTitle,
+    });
   }
 
   if (message.type !== "translate-clickbait-result") return;
@@ -205,13 +227,17 @@ browser.runtime.onMessage.addListener((message) => {
 });
 
 function hasTextLinkForUrl(linkUrl) {
+  return Boolean(getOriginalTitleForUrl(linkUrl));
+}
+
+function getOriginalTitleForUrl(linkUrl) {
   const canonicalKey = canonicalizeUrl(linkUrl);
 
   for (const a of document.querySelectorAll("a[href]")) {
     if (keyFor(a) === canonicalKey && isTextLink(a)) {
-      return true;
+      return originalTitleForLink(a);
     }
   }
 
-  return false;
+  return "";
 }
