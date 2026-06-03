@@ -30,10 +30,10 @@ test("detectArticleLanguage falls back to language meta tags", () => {
   assert.equal(detectArticleLanguage(doc), "fr-fr");
 });
 
-test("buildMessages asks for a title in the article language", () => {
+test("buildMessages asks for a title in the target language", () => {
   const [system, user] = buildMessages("texto del artículo", "Titular", "es", 120);
 
-  assert.match(system.content, /same language as the article/i);
+  assert.match(system.content, /MUST be in the target language/i);
   assert.match(system.content, /unknown/i);
-  assert.match(user.content, /Article language: es/);
+  assert.match(user.content, /Target language: es/);
 });

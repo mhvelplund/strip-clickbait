@@ -38,7 +38,7 @@ function createAnchor(href, textContent, ariaLabel = "", extraAttributes = {}) {
   };
 }
 
-async function loadContentScript(anchors, cacheEntries = {}) {
+async function loadContentScript(anchors, cacheEntries = {}, pageContext = {}) {
   let messageListener = null;
 
   const browser = {
@@ -61,7 +61,11 @@ async function loadContentScript(anchors, cacheEntries = {}) {
   const context = {
     browser,
     document: {
-      body: {},
+      title: pageContext.title ?? "Example Page",
+      location: { href: pageContext.href ?? "https://example.com/" },
+      body: {
+        innerText: pageContext.bodyText ?? "Body text",
+      },
       querySelectorAll(selector) {
         if (selector === "a[href]") {
           return anchors;
@@ -128,7 +132,25 @@ test("content script only marks text links as eligible for translation", async (
   });
 
   assert.equal(textResponse.eligible, true);
+  assert.equal(textResponse.hasClassAttribute, false);
   assert.equal(imageResponse.eligible, false);
+});
+
+test("content script reports class metadata for eligible links", async () => {
+  const textLink = createAnchor("https://example.com/story", "Original headline", "", {
+    class: "teaser-link featured",
+  });
+
+  const { messageListener } = await loadContentScript([textLink]);
+
+  const response = await messageListener({
+    type: "can-translate-link",
+    payload: { linkUrl: "https://example.com/story" },
+  });
+
+  assert.equal(response.eligible, true);
+  assert.equal(response.hasClassAttribute, true);
+  assert.equal(response.classAttributeValue, "teaser-link featured");
 });
 
 test("content script treats aria-label links as eligible and exposes original title", async () => {
@@ -184,4 +206,61 @@ test("content script ignores live updates for image links", async () => {
 
   assert.equal(imageLink.textContent, "");
   assert.equal(imageLink.title, "");
+});
+
+test("content script returns class-matching eligible links for bulk translation", async () => {
+  const clicked = createAnchor("https://example.com/a", "A", "", {
+    class: "teaser-link featured",
+  });
+  const sameClassText = createAnchor("https://example.com/b", "B", "", {
+    class: "teaser-link featured",
+  });
+  const sameClassAria = createAnchor("https://example.com/c", "", "C via aria", {
+    class: "teaser-link featured",
+  });
+  const sameClassImage = createAnchor("https://example.com/d", "", "", {
+    class: "teaser-link featured",
+  });
+  const differentClass = createAnchor("https://example.com/e", "E", "", {
+    class: "other-link",
+  });
+
+  const { messageListener } = await loadContentScript([
+    clicked,
+    sameClassText,
+    sameClassAria,
+    sameClassImage,
+    differentClass,
+  ]);
+
+  const response = await messageListener({
+    type: "get-class-link-candidates",
+    payload: { linkUrl: "https://example.com/a" },
+  });
+
+  assert.deepEqual(JSON.parse(JSON.stringify(response.links)), [
+    { linkUrl: "https://example.com/a", originalTitle: "A" },
+    { linkUrl: "https://example.com/b", originalTitle: "B" },
+    { linkUrl: "https://example.com/c", originalTitle: "C via aria" },
+  ]);
+});
+
+test("content script provides source-page language detection context", async () => {
+  const { messageListener } = await loadContentScript(
+    [],
+    {},
+    {
+      title: "Nyheder i dag",
+      href: "https://example.com/frontpage",
+      bodyText: "Dette er en dansk forside med flere artikler.",
+    },
+  );
+
+  const response = await messageListener({
+    type: "get-source-page-language-context",
+  });
+
+  assert.equal(response.sourcePageUrl, "https://example.com/frontpage");
+  assert.match(response.sourcePageText, /Nyheder i dag/);
+  assert.match(response.sourcePageText, /dansk forside/);
 });
