@@ -15,6 +15,7 @@ function createBrowserMock() {
   const createCalls = [];
   const removeCalls = [];
   const updateCalls = [];
+  const localStore = {};
   let refreshCalls = 0;
   let sendMessageImpl = async () => ({ eligible: true });
 
@@ -64,10 +65,24 @@ function createBrowserMock() {
     },
     storage: {
       local: {
-        async get() {
-          return {};
+        async get(keys) {
+          if (Array.isArray(keys)) {
+            const result = {};
+            for (const key of keys) {
+              if (key in localStore) {
+                result[key] = localStore[key];
+              }
+            }
+            return result;
+          }
+          if (typeof keys === "string") {
+            return keys in localStore ? { [keys]: localStore[keys] } : {};
+          }
+          return { ...localStore };
         },
-        async set() {},
+        async set(value) {
+          Object.assign(localStore, value);
+        },
       },
       onChanged: {
         addListener(listener) {
@@ -90,6 +105,12 @@ function createBrowserMock() {
     getRefreshCalls: () => refreshCalls,
     setSendMessageImpl(fn) {
       sendMessageImpl = fn;
+    },
+    setLocalStorageValue(key, value) {
+      localStore[key] = value;
+    },
+    getLocalStorageValue(key) {
+      return localStore[key];
     },
   };
 }
@@ -183,13 +204,78 @@ test("background shows bulk menu only when eligible link has class attribute", a
 });
 
 test("background caches source-page language detection per page", async () => {
-  const { listeners, setSendMessageImpl } = createBrowserMock();
+  const {
+    listeners,
+    setSendMessageImpl,
+    getLocalStorageValue,
+    setLocalStorageValue,
+  } = createBrowserMock();
   let sourceContextCalls = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    async json() {
+      return { choices: [{ message: { content: '{"language":"da"}' } }] };
+    },
+  });
+
+  try {
+    setLocalStorageValue("settings", {
+      openaiApiKey: "test-key",
+      openaiModel: "gpt-4o-mini",
+    });
+    setSendMessageImpl(async (_tabId, message) => {
+      if (message.type === "get-source-page-language-context") {
+        sourceContextCalls += 1;
+        return { sourcePageText: "Dette er dansk tekst" };
+      }
+      if (message.type === "can-translate-link") {
+        return { eligible: false };
+      }
+      return {};
+    });
+
+    await import(moduleUrl("src/background/index.js"));
+    await Promise.resolve();
+
+    await listeners.onMenuClicked(
+      {
+        menuItemId: "translate-clickbait",
+        linkUrl: "https://example.com/article-1",
+        pageUrl: "https://example.com/frontpage",
+      },
+      { id: 42, url: "https://example.com/frontpage" },
+    );
+    await listeners.onMenuClicked(
+      {
+        menuItemId: "translate-clickbait",
+        linkUrl: "https://example.com/article-2",
+        pageUrl: "https://example.com/frontpage",
+      },
+      { id: 42, url: "https://example.com/frontpage" },
+    );
+
+    assert.equal(sourceContextCalls, 1);
+    assert.equal(
+      getLocalStorageValue("sourcePageLanguages")["42:https://example.com/frontpage"],
+      "da",
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("background uses persisted source-page language without re-detecting", async () => {
+  const { listeners, setSendMessageImpl, setLocalStorageValue } = createBrowserMock();
+  let sourceContextCalls = 0;
+  setLocalStorageValue("sourcePageLanguages", {
+    "42:https://example.com/frontpage": "fr",
+  });
 
   setSendMessageImpl(async (_tabId, message) => {
     if (message.type === "get-source-page-language-context") {
       sourceContextCalls += 1;
-      return { sourcePageText: "" };
+      return { sourcePageText: "ignored" };
     }
     if (message.type === "can-translate-link") {
       return { eligible: false };
@@ -208,14 +294,6 @@ test("background caches source-page language detection per page", async () => {
     },
     { id: 42, url: "https://example.com/frontpage" },
   );
-  await listeners.onMenuClicked(
-    {
-      menuItemId: "translate-clickbait",
-      linkUrl: "https://example.com/article-2",
-      pageUrl: "https://example.com/frontpage",
-    },
-    { id: 42, url: "https://example.com/frontpage" },
-  );
 
-  assert.equal(sourceContextCalls, 1);
+  assert.equal(sourceContextCalls, 0);
 });
