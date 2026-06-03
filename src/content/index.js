@@ -259,13 +259,6 @@ browser.runtime.onMessage.addListener((message) => {
   }
 });
 
-function hasTextLinkForUrl(linkUrl) {
-  return Boolean(getLinkMetaForUrl(linkUrl)?.originalTitle);
-}
-
-function getOriginalTitleForUrl(linkUrl) {
-  return getLinkMetaForUrl(linkUrl)?.originalTitle ?? "";
-}
 
 function getLinkMetaForUrl(linkUrl) {
   const canonicalKey = canonicalizeUrl(linkUrl);
