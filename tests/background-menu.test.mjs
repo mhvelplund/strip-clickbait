@@ -14,6 +14,9 @@ function createBrowserMock() {
   const listeners = {};
   const createCalls = [];
   const removeCalls = [];
+  const updateCalls = [];
+  let refreshCalls = 0;
+  let sendMessageImpl = async () => ({ eligible: true });
 
   globalThis.browser = {
     contextMenus: {
@@ -24,9 +27,21 @@ function createBrowserMock() {
         removeCalls.push(menuId);
         return Promise.resolve();
       },
+      update(menuId, details) {
+        updateCalls.push({ menuId, details });
+        return Promise.resolve();
+      },
+      refresh() {
+        refreshCalls += 1;
+      },
       onClicked: {
         addListener(listener) {
           listeners.onMenuClicked = listener;
+        },
+      },
+      onShown: {
+        addListener(listener) {
+          listeners.onMenuShown = listener;
         },
       },
     },
@@ -61,11 +76,22 @@ function createBrowserMock() {
       },
     },
     tabs: {
-      async sendMessage() {},
+      async sendMessage(...args) {
+        return sendMessageImpl(...args);
+      },
     },
   };
 
-  return { createCalls, removeCalls, listeners };
+  return {
+    createCalls,
+    removeCalls,
+    updateCalls,
+    listeners,
+    getRefreshCalls: () => refreshCalls,
+    setSendMessageImpl(fn) {
+      sendMessageImpl = fn;
+    },
+  };
 }
 
 test("background registers context menu immediately when loaded", async () => {
@@ -83,4 +109,38 @@ test("background registers context menu immediately when loaded", async () => {
     title: "Translate Clickbait",
     contexts: ["link"],
   });
+});
+
+test("background shows context menu item for eligible text links", async () => {
+  const { listeners, updateCalls, getRefreshCalls, setSendMessageImpl } =
+    createBrowserMock();
+  setSendMessageImpl(async () => ({ eligible: true }));
+
+  await import(moduleUrl("src/background/index.js"));
+  await Promise.resolve();
+
+  await listeners.onMenuShown({ linkUrl: "https://example.com/article" }, { id: 7 });
+
+  assert.deepEqual(updateCalls.at(-1), {
+    menuId: "translate-clickbait",
+    details: { visible: true },
+  });
+  assert.equal(getRefreshCalls(), 1);
+});
+
+test("background hides context menu item for ineligible links", async () => {
+  const { listeners, updateCalls, getRefreshCalls, setSendMessageImpl } =
+    createBrowserMock();
+  setSendMessageImpl(async () => ({ eligible: false }));
+
+  await import(moduleUrl("src/background/index.js"));
+  await Promise.resolve();
+
+  await listeners.onMenuShown({ linkUrl: "https://example.com/image" }, { id: 9 });
+
+  assert.deepEqual(updateCalls.at(-1), {
+    menuId: "translate-clickbait",
+    details: { visible: false },
+  });
+  assert.equal(getRefreshCalls(), 1);
 });

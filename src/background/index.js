@@ -32,6 +32,26 @@ browser.runtime.onStartup.addListener(() => {
   createContextMenu();
 });
 
+browser.contextMenus.onShown.addListener(async (info, tab) => {
+  let visible = false;
+
+  if (info.linkUrl && tab && typeof tab.id === "number") {
+    try {
+      const response = await browser.tabs.sendMessage(tab.id, {
+        type: "can-translate-link",
+        payload: { linkUrl: info.linkUrl },
+      });
+      visible = Boolean(response?.eligible);
+    } catch (error) {
+      log.debug("Skipping menu visibility eligibility check", tab.id, error?.message);
+      visible = false;
+    }
+  }
+
+  await browser.contextMenus.update(MENU_ID, { visible });
+  browser.contextMenus.refresh();
+});
+
 /**
  * Notify the content script in a tab about a cache entry update.
  * Silently ignores errors (e.g. tab closed, content script not injected).
