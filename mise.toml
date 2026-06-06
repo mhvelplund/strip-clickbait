@@ -9,6 +9,7 @@ gs = "gh stack"
 description = "Build a distribution zip for upload to Firefox Add-ons (AMO)"
 dir = "{{ config_root }}"
 run = '''
+#!/usr/bin/env bash
 set -euo pipefail
 version=$(sed -nE 's/.*"version" *: *"([^"]+)".*/\1/p' manifest.json | head -1)
 out="dist/strip-clickbait-${version}.zip"
