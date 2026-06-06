@@ -33,9 +33,17 @@ function fmt(level, args) {
 }
 
 export const log = {
-  debug: (...args) => { if (_enabled) console.debug(...fmt("DEBUG", args)); },
-  info:  (...args) => { if (_enabled) console.info(...fmt("INFO",  args)); },
-  warn:  (...args) => { console.warn(...fmt("WARN",   args)); },
+  debug: (...args) => {
+    if (_enabled) console.debug(...fmt("DEBUG", args));
+  },
+  info: (...args) => {
+    if (_enabled) console.info(...fmt("INFO", args));
+  },
+  warn: (...args) => {
+    console.warn(...fmt("WARN", args));
+  },
   // Errors are always logged regardless of the flag.
-  error: (...args) => { console.error(...fmt("ERROR",  args)); },
+  error: (...args) => {
+    console.error(...fmt("ERROR", args));
+  },
 };

@@ -9,14 +9,18 @@ function setStatus(text, isError = false) {
 }
 
 async function loadSettings() {
-  const stored = await browser.storage.local.get([SETTINGS_KEY, DIAGNOSTICS_KEY]);
+  const stored = await browser.storage.local.get([
+    SETTINGS_KEY,
+    DIAGNOSTICS_KEY,
+  ]);
   const settings = stored[SETTINGS_KEY] || {};
 
   document.getElementById("openai-api-key").value = settings.openaiApiKey || "";
   document.getElementById("openai-model").value =
     settings.openaiModel || "gpt-4o-mini";
-  document.getElementById("diagnostics").checked =
-    Boolean(stored[DIAGNOSTICS_KEY]);
+  document.getElementById("diagnostics").checked = Boolean(
+    stored[DIAGNOSTICS_KEY],
+  );
 }
 
 async function saveSettings(event) {
@@ -42,13 +46,13 @@ async function updateCacheCount() {
   const total = entries.length;
   const success = entries.filter((e) => e.status === "success").length;
   const pending = entries.filter((e) => e.status === "pending").length;
-  const failed  = entries.filter((e) => e.status === "failed").length;
+  const failed = entries.filter((e) => e.status === "failed").length;
 
   document.getElementById("cache-count").textContent =
     total === 0
       ? "Cache is empty."
-      : `${total} cached URL${total !== 1 ? "s" : ""}: `
-        + `${success} success, ${pending} pending, ${failed} failed.`;
+      : `${total} cached URL${total !== 1 ? "s" : ""}: ` +
+        `${success} success, ${pending} pending, ${failed} failed.`;
 }
 
 async function clearCache() {
@@ -57,14 +61,16 @@ async function clearCache() {
   updateCacheCount();
 }
 
-document.getElementById("settings-form").addEventListener("submit", async (event) => {
-  try {
-    await saveSettings(event);
-  } catch (error) {
-    console.error(error);
-    setStatus("Failed to save settings.", true);
-  }
-});
+document
+  .getElementById("settings-form")
+  .addEventListener("submit", async (event) => {
+    try {
+      await saveSettings(event);
+    } catch (error) {
+      console.error(error);
+      setStatus("Failed to save settings.", true);
+    }
+  });
 
 document.getElementById("clear-cache").addEventListener("click", async () => {
   try {
@@ -81,4 +87,3 @@ loadSettings().catch((error) => {
 });
 
 updateCacheCount().catch(console.error);
-

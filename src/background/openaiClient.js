@@ -7,8 +7,11 @@
  * longer string it is hard-clamped here before the result is stored.
  */
 
+import { fetchWithTimeout, withRetry } from "./asyncUtils.js";
+
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 const SETTINGS_KEY = "settings";
+const API_TIMEOUT_MS = 30_000;
 
 /**
  * Load the user's API key and model from storage.
@@ -20,7 +23,7 @@ async function loadSettings() {
   const settings = stored[SETTINGS_KEY] ?? {};
   if (!settings.openaiApiKey) {
     throw new Error(
-      "No OpenAI API key configured. Open the extension options page to add one."
+      "No OpenAI API key configured. Open the extension options page to add one.",
     );
   }
   return {
@@ -34,15 +37,24 @@ async function loadSettings() {
  *
  * @param {string} articleText
  * @param {string} originalTitle
+ * @param {string} articleLanguage
  * @param {number} maxLength
  * @returns {Array<{role: string, content: string}>}
  */
-function buildMessages(articleText, originalTitle, maxLength) {
+export function buildMessages(
+  articleText,
+  originalTitle,
+  articleLanguage,
+  maxLength,
+) {
   const system = `You are a professional headline editor. Your job is to replace \
 sensationalist or misleading article titles with factual, informative ones.
 
 Rules:
 - The replacement title MUST be ≤ ${maxLength} characters (original: ${originalTitle.length}).
+- The replacement title MUST be in the same language as the article.
+- If the article language is known, keep the title in that language.
+- If the article language is unknown, infer it from the article text and keep the result in that language.
 - Do NOT use clickbait language, ALL-CAPS words, ellipsis, or rhetorical questions.
 - Use active voice and focus on the main factual claim.
 - Output ONLY valid JSON — no markdown fences, no extra text.
@@ -53,6 +65,8 @@ Required JSON format:
 }`;
 
   const user = `Original title: "${originalTitle}"
+
+Article language: ${articleLanguage || "unknown"}
 
 Article text (excerpt):
 ${articleText.slice(0, 3000)}`;
@@ -90,7 +104,9 @@ function parseTitle(raw, maxLength) {
   }
 
   const title = parsed.title.trim();
-  return title.length <= maxLength ? title : title.slice(0, maxLength).trimEnd();
+  return title.length <= maxLength
+    ? title
+    : title.slice(0, maxLength).trimEnd();
 }
 
 /**
@@ -98,33 +114,54 @@ function parseTitle(raw, maxLength) {
  *
  * @param {string} articleText   - Extracted article body text.
  * @param {string} originalTitle - The current (clickbait) link text.
+ * @param {string} articleLanguage - Best-effort article language hint.
  * @returns {Promise<string>}    - The AI-generated replacement title.
  * @throws {Error}               - On network failure, API error, or missing key.
  */
-export async function generateTitle(articleText, originalTitle) {
+export async function generateTitle(
+  articleText,
+  originalTitle,
+  articleLanguage = "",
+) {
   const { openaiApiKey, openaiModel } = await loadSettings();
   const maxLength = Math.floor(originalTitle.length * 1.5);
 
-  const messages = buildMessages(articleText, originalTitle, maxLength);
+  const messages = buildMessages(
+    articleText,
+    originalTitle,
+    articleLanguage,
+    maxLength,
+  );
 
-  const response = await fetch(OPENAI_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${openaiApiKey}`,
-    },
-    body: JSON.stringify({
-      model: openaiModel,
-      messages,
-      temperature: 0.3,
-      max_tokens: 120,
-      response_format: { type: "json_object" },
-    }),
-  });
+  const response = await withRetry(
+    () =>
+      fetchWithTimeout(
+        OPENAI_API_URL,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${openaiApiKey}`,
+          },
+          body: JSON.stringify({
+            model: openaiModel,
+            messages,
+            temperature: 0.3,
+            max_tokens: 120,
+            response_format: { type: "json_object" },
+          }),
+        },
+        API_TIMEOUT_MS,
+        "OpenAI API request",
+      ),
+    { maxAttempts: 3, baseDelayMs: 1000 },
+  );
 
   if (!response.ok) {
     const body = await response.text().catch(() => "");
-    throw new Error(`OpenAI API error ${response.status}: ${body.slice(0, 300)}`);
+    throw new Error(
+      `OpenAI API error ${response.status}: ${body.slice(0, 300)}`,
+    );
   }
 
   const data = await response.json();

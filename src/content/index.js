@@ -18,40 +18,75 @@
 
 const EMOJI_SUCCESS = "🤖";
 const EMOJI_PENDING = "⏳";
-const EMOJI_FAILED  = "⚠️";
+const EMOJI_FAILED = "⚠️";
 
 const ATTR_ORIGINAL = "data-scb-original";
-const ATTR_KEY      = "data-scb-key";
+const ATTR_KEY = "data-scb-key";
 
 // ---------- Inline canonicalizeUrl (kept in sync with cache.js) ----------
 
 const TRACKING_PARAMS = new Set([
-  "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term",
-  "utm_id", "utm_source_platform",
-  "gclid", "gclsrc", "dclid",
-  "fbclid", "fref",
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_content",
+  "utm_term",
+  "utm_id",
+  "utm_source_platform",
+  "gclid",
+  "gclsrc",
+  "dclid",
+  "fbclid",
+  "fref",
   "msclkid",
-  "mc_cid", "mc_eid",
-  "ref", "referrer",
-  "click_id", "c_id", "aff_id", "tracking_id",
-  "sid", "tid", "visitor_id",
+  "mc_cid",
+  "mc_eid",
+  "ref",
+  "referrer",
+  "click_id",
+  "c_id",
+  "aff_id",
+  "tracking_id",
+  "sid",
+  "tid",
+  "visitor_id",
 ]);
 
 function canonicalizeUrl(rawUrl) {
   let u;
-  try { u = new URL(rawUrl); } catch { return rawUrl; }
+  try {
+    u = new URL(rawUrl);
+  } catch {
+    return rawUrl;
+  }
   u.protocol = "https:";
   u.hostname = u.hostname.toLowerCase().replace(/^www\./, "");
-  if ((u.port === "80" && u.protocol === "http:") ||
-      (u.port === "443" && u.protocol === "https:")) {
+  if (
+    (u.port === "80" && u.protocol === "http:") ||
+    (u.port === "443" && u.protocol === "https:")
+  ) {
     u.port = "";
   }
   u.hash = "";
   const params = new URLSearchParams(u.search);
-  for (const key of [...params.keys()]) {
-    if (TRACKING_PARAMS.has(key.toLowerCase())) params.delete(key);
+  const sortedParams = [];
+  params.forEach((value, key) => {
+    if (!TRACKING_PARAMS.has(key.toLowerCase())) {
+      sortedParams.push([key, value]);
+    }
+  });
+  sortedParams.sort(
+    ([leftKey, leftValue], [rightKey, rightValue]) => {
+      const keyCompare = leftKey.localeCompare(rightKey);
+      if (keyCompare !== 0) return keyCompare;
+      return leftValue.localeCompare(rightValue);
+    },
+  );
+  const normalizedParams = new URLSearchParams();
+  for (const [key, value] of sortedParams) {
+    normalizedParams.append(key, value);
   }
-  u.search = params.toString();
+  u.search = normalizedParams.toString();
   if (u.pathname.length > 1 && u.pathname.endsWith("/")) {
     u.pathname = u.pathname.slice(0, -1);
   }
@@ -65,6 +100,10 @@ function keyFor(a) {
     a.dataset.scbKey = canonicalizeUrl(a.href);
   }
   return a.dataset.scbKey;
+}
+
+function isTextLink(a) {
+  return (a.textContent ?? "").trim().length > 0;
 }
 
 function applyEntry(a, entry) {
@@ -105,7 +144,7 @@ async function fetchCacheEntries(rawUrls) {
 
 async function restoreFromCache(anchors) {
   const list = Array.from(anchors).filter(
-    (a) => a.href && a.href.startsWith("http")
+    (a) => a.href && a.href.startsWith("http") && isTextLink(a),
   );
   if (list.length === 0) return;
 
@@ -143,7 +182,15 @@ observer.observe(document.body, { childList: true, subtree: true });
 // ---------- Live update listener ----------
 
 browser.runtime.onMessage.addListener((message) => {
-  if (!message || message.type !== "translate-clickbait-result") return;
+  if (!message) return;
+
+  if (message.type === "can-translate-link") {
+    const linkUrl = message.payload?.linkUrl;
+    const eligible = !!linkUrl && hasTextLinkForUrl(linkUrl);
+    return Promise.resolve({ eligible });
+  }
+
+  if (message.type !== "translate-clickbait-result") return;
 
   const { linkUrl, entry } = message.payload ?? {};
   if (!linkUrl || !entry) return;
@@ -151,9 +198,20 @@ browser.runtime.onMessage.addListener((message) => {
   const canonicalKey = canonicalizeUrl(linkUrl);
 
   for (const a of document.querySelectorAll("a[href]")) {
-    if (keyFor(a) === canonicalKey) {
+    if (keyFor(a) === canonicalKey && isTextLink(a)) {
       applyEntry(a, entry);
     }
   }
 });
 
+function hasTextLinkForUrl(linkUrl) {
+  const canonicalKey = canonicalizeUrl(linkUrl);
+
+  for (const a of document.querySelectorAll("a[href]")) {
+    if (keyFor(a) === canonicalKey && isTextLink(a)) {
+      return true;
+    }
+  }
+
+  return false;
+}
