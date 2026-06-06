@@ -114,6 +114,10 @@ function isTextLink(a) {
   return originalTitleForLink(a).length > 0;
 }
 
+function classAttributeForLink(a) {
+  return (a.getAttribute("class") ?? "").trim();
+}
+
 function applyEntry(a, entry) {
   const hasAriaLabel = a.hasAttribute("aria-label");
   if (!a.hasAttribute(ATTR_ORIGINAL)) {
@@ -143,6 +147,22 @@ function applyEntry(a, entry) {
       }
       break;
   }
+}
+
+function getSourcePageLanguageContext() {
+  const title = (document.title ?? "").trim();
+  const bodyText = (
+    document.body?.innerText ??
+    document.body?.textContent ??
+    ""
+  )
+    .replace(/\s+/g, " ")
+    .trim();
+  const sourcePageText = `${title}\n\n${bodyText}`.trim().slice(0, 6000);
+  return {
+    sourcePageUrl: document.location?.href ?? "",
+    sourcePageText,
+  };
 }
 
 // ---------- Cache read via background message ----------
@@ -205,11 +225,24 @@ browser.runtime.onMessage.addListener((message) => {
 
   if (message.type === "can-translate-link") {
     const linkUrl = message.payload?.linkUrl;
-    const originalTitle = linkUrl ? getOriginalTitleForUrl(linkUrl) : "";
+    const linkMeta = linkUrl ? getLinkMetaForUrl(linkUrl) : null;
     return Promise.resolve({
-      eligible: Boolean(originalTitle),
-      originalTitle,
+      eligible: Boolean(linkMeta?.originalTitle),
+      originalTitle: linkMeta?.originalTitle ?? "",
+      hasClassAttribute: Boolean(linkMeta?.classAttributeValue),
+      classAttributeValue: linkMeta?.classAttributeValue ?? "",
     });
+  }
+
+  if (message.type === "get-class-link-candidates") {
+    const linkUrl = message.payload?.linkUrl;
+    return Promise.resolve({
+      links: linkUrl ? getClassLinkCandidates(linkUrl) : [],
+    });
+  }
+
+  if (message.type === "get-source-page-language-context") {
+    return Promise.resolve(getSourcePageLanguageContext());
   }
 
   if (message.type !== "translate-clickbait-result") return;
@@ -227,17 +260,52 @@ browser.runtime.onMessage.addListener((message) => {
 });
 
 function hasTextLinkForUrl(linkUrl) {
-  return Boolean(getOriginalTitleForUrl(linkUrl));
+  return Boolean(getLinkMetaForUrl(linkUrl)?.originalTitle);
 }
 
 function getOriginalTitleForUrl(linkUrl) {
+  return getLinkMetaForUrl(linkUrl)?.originalTitle ?? "";
+}
+
+function getLinkMetaForUrl(linkUrl) {
   const canonicalKey = canonicalizeUrl(linkUrl);
 
   for (const a of document.querySelectorAll("a[href]")) {
     if (keyFor(a) === canonicalKey && isTextLink(a)) {
-      return originalTitleForLink(a);
+      return {
+        originalTitle: originalTitleForLink(a),
+        classAttributeValue: classAttributeForLink(a),
+      };
     }
   }
 
-  return "";
+  return null;
+}
+
+function getClassLinkCandidates(linkUrl) {
+  const sourceMeta = getLinkMetaForUrl(linkUrl);
+  if (!sourceMeta?.classAttributeValue) {
+    return [];
+  }
+
+  const links = [];
+  const seen = new Set();
+  for (const a of document.querySelectorAll("a[href]")) {
+    if (!a.href || !a.href.startsWith("http") || !isTextLink(a)) {
+      continue;
+    }
+    if (classAttributeForLink(a) !== sourceMeta.classAttributeValue) {
+      continue;
+    }
+    const canonicalLinkUrl = keyFor(a);
+    if (seen.has(canonicalLinkUrl)) {
+      continue;
+    }
+    seen.add(canonicalLinkUrl);
+    links.push({
+      linkUrl: a.href,
+      originalTitle: originalTitleForLink(a),
+    });
+  }
+  return links;
 }

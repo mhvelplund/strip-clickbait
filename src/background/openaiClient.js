@@ -55,7 +55,7 @@ async function loadSettings() {
 export function buildMessages(
   articleText,
   originalTitle,
-  articleLanguage,
+  targetLanguage,
   maxLength,
 ) {
   const system = `You are a professional headline editor. Your job is to replace \
@@ -64,9 +64,8 @@ sensationalist or misleading article titles with factual, informative ones.
 Rules:
 - The replacement title MUST be ≤ ${maxLength} characters (original: ${originalTitle.length}).
 - If limiting the title requires truncating the last word, keep the full word and trim any excess whitespace, even if that means the title is slightly over the limit. Do NOT truncate in the middle of a word.
-- The replacement title MUST be in the same language as the article.
-- If the article language is known, keep the title in that language.
-- If the article language is unknown, infer it from the article text and keep the result in that language.
+- The replacement title MUST be in the target language.
+- If target language is unknown, infer the language from the article text and keep the result in that language.
 - Do NOT use clickbait language, ALL-CAPS words, ellipsis, or rhetorical questions.
 - Use active voice and focus on the main factual claim.
 - Output ONLY valid JSON — no markdown fences, no extra text.
@@ -78,7 +77,7 @@ Required JSON format:
 
   const user = `Original title: "${originalTitle}"
 
-Article language: ${articleLanguage || "unknown"}
+Target language: ${targetLanguage || "unknown"}
 
 Article text (excerpt):
 ${articleText.slice(0, 3000)}`;
@@ -133,7 +132,7 @@ function parseTitle(raw, maxLength) {
 export async function generateTitle(
   articleText,
   originalTitle,
-  articleLanguage = "",
+  targetLanguage = "",
 ) {
   const { openaiApiKey, openaiModel, openaiMaxLengthFactor } =
     await loadSettings();
@@ -142,7 +141,7 @@ export async function generateTitle(
   const messages = buildMessages(
     articleText,
     originalTitle,
-    articleLanguage,
+    targetLanguage,
     maxLength,
   );
 
@@ -185,4 +184,80 @@ export async function generateTitle(
   }
 
   return parseTitle(raw, maxLength);
+}
+
+/**
+ * Detect the primary language of the source page content.
+ *
+ * @param {string} sourcePageText
+ * @returns {Promise<string>}
+ */
+export async function detectLanguageFromSourcePage(sourcePageText) {
+  const trimmed = (sourcePageText ?? "").trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  const { openaiApiKey, openaiModel } = await loadSettings();
+  const response = await withRetry(
+    () =>
+      fetchWithTimeout(
+        OPENAI_API_URL,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${openaiApiKey}`,
+          },
+          body: JSON.stringify({
+            model: openaiModel,
+            messages: [
+              {
+                role: "system",
+                content: `Detect the primary language of the provided webpage text.
+Return ONLY valid JSON:
+{
+  "language": "<BCP-47 code>"
+}
+Use an empty string when uncertain.`,
+              },
+              {
+                role: "user",
+                content: trimmed.slice(0, 3000),
+              },
+            ],
+            temperature: 0,
+            max_tokens: 20,
+            response_format: { type: "json_object" },
+          }),
+        },
+        API_TIMEOUT_MS,
+        "OpenAI language detection request",
+      ),
+    { maxAttempts: 3, baseDelayMs: 1000 },
+  );
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(
+      `OpenAI API error ${response.status}: ${body.slice(0, 300)}`,
+    );
+  }
+
+  const data = await response.json();
+  const raw = data?.choices?.[0]?.message?.content;
+  if (!raw) {
+    throw new Error("Empty response from OpenAI API");
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(raw.trim());
+  } catch {
+    throw new Error(`Model returned non-JSON response: ${raw.slice(0, 200)}`);
+  }
+
+  return typeof parsed?.language === "string"
+    ? parsed.language.trim().toLowerCase()
+    : "";
 }

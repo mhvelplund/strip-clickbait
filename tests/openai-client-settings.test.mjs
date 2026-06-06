@@ -115,3 +115,44 @@ test("generateTitle defaults max title length factor to 2.0", async () => {
     restoreGlobals();
   }
 });
+
+test("detectLanguageFromSourcePage returns normalized language code", async () => {
+  const requests = [];
+  const restoreGlobals = usePatchedGlobals({
+    browser: {
+      storage: {
+        local: {
+          async get() {
+            return {
+              settings: {
+                openaiApiKey: "test-key",
+                openaiModel: "gpt-4o-mini",
+              },
+            };
+          },
+        },
+      },
+    },
+    fetch: async (_url, init) => {
+      requests.push(JSON.parse(init.body));
+      return {
+        ok: true,
+        async json() {
+          return {
+            choices: [{ message: { content: '{"language":"DA-DK"}' } }],
+          };
+        },
+      };
+    },
+  });
+
+  try {
+    const { detectLanguageFromSourcePage } = await importOpenAiClient();
+    const language = await detectLanguageFromSourcePage("Dette er dansk tekst.");
+
+    assert.equal(language, "da-dk");
+    assert.equal(requests.length, 1);
+  } finally {
+    restoreGlobals();
+  }
+});
