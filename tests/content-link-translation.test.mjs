@@ -9,8 +9,14 @@ const testDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(testDir, "..");
 const contentScriptPath = path.join(repoRoot, "src/content/index.js");
 
-function createAnchor(href, textContent) {
+function createAnchor(href, textContent, ariaLabel = "", extraAttributes = {}) {
   const attributes = new Map();
+  if (ariaLabel) {
+    attributes.set("aria-label", ariaLabel);
+  }
+  for (const [name, value] of Object.entries(extraAttributes)) {
+    attributes.set(name, String(value));
+  }
 
   return {
     href,
@@ -123,6 +129,43 @@ test("content script only marks text links as eligible for translation", async (
 
   assert.equal(textResponse.eligible, true);
   assert.equal(imageResponse.eligible, false);
+});
+
+test("content script treats aria-label links as eligible and exposes original title", async () => {
+  const ariaLink = createAnchor(
+    "https://example.com/story",
+    "",
+    "LIGE NU: Har ramt i storby",
+  );
+
+  const { messageListener } = await loadContentScript([ariaLink]);
+
+  const response = await messageListener({
+    type: "can-translate-link",
+    payload: { linkUrl: "https://example.com/story" },
+  });
+
+  assert.equal(response.eligible, true);
+  assert.equal(response.originalTitle, "LIGE NU: Har ramt i storby");
+});
+
+test("content script updates aria-label when a translated title is applied", async () => {
+  const ariaLink = createAnchor(
+    "https://example.com/story",
+    "",
+    "Original aria headline",
+  );
+
+  await loadContentScript([ariaLink], {
+    "https://example.com/story": {
+      status: "success",
+      aiTitle: "Translated aria headline",
+    },
+  });
+
+  await flushAsync();
+
+  assert.equal(ariaLink.getAttribute("aria-label"), "Translated aria headline");
 });
 
 test("content script ignores live updates for image links", async () => {
