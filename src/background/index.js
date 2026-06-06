@@ -1,3 +1,11 @@
+import {
+  canonicalizeUrl,
+  getEntry,
+  setEntry,
+  withDedup,
+  isInFlight,
+} from "./cache.js";
+
 const MENU_ID = "translate-clickbait";
 
 function createContextMenu() {

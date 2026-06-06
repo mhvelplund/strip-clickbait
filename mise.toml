@@ -1,4 +1,6 @@
 [tools]
+gh = "latest"
 node = "lts"
-"npm:gh" = "2.8.9"
-"npm:gh-stack" = "0.7.1"
+
+[shell_alias]
+gs = "gh stack"
