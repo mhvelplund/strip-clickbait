@@ -52,6 +52,7 @@ sensationalist or misleading article titles with factual, informative ones.
 
 Rules:
 - The replacement title MUST be ≤ ${maxLength} characters (original: ${originalTitle.length}).
+- If limiting the title requires truncating the last word, keep the full word and trim any excess whitespace, even if that means the title is slightly over the limit. Do NOT truncate in the middle of a word.
 - The replacement title MUST be in the same language as the article.
 - If the article language is known, keep the title in that language.
 - If the article language is unknown, infer it from the article text and keep the result in that language.
