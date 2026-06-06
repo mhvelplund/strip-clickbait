@@ -1,6 +1,7 @@
 const SETTINGS_KEY = "settings";
 const DIAGNOSTICS_KEY = "diagnosticsEnabled";
 const CACHE_KEY = "cache";
+const SOURCE_PAGE_LANGUAGES_KEY = "sourcePageLanguages";
 const DEFAULT_MAX_LENGTH_FACTOR = 2.0;
 
 function parseMaxLengthFactor(value) {
@@ -70,6 +71,7 @@ async function updateCacheCount() {
 
 async function clearCache() {
   await browser.storage.local.remove(CACHE_KEY);
+  await browser.storage.local.remove(SOURCE_PAGE_LANGUAGES_KEY);
   setStatus("Cache cleared.");
   updateCacheCount();
 }

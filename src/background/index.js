@@ -13,7 +13,7 @@ import { log } from "./logger.js";
 
 const MENU_ID = "translate-clickbait";
 const MENU_ALL_ID = "translate-clickbait-all";
-const sourcePageLanguageCache = new Map();
+const SOURCE_PAGE_LANGUAGES_KEY = "sourcePageLanguages";
 
 function createContextMenu() {
   Promise.allSettled([
@@ -62,9 +62,13 @@ browser.contextMenus.onShown.addListener(async (info, tab) => {
     }
   }
 
-  await browser.contextMenus.update(MENU_ID, { visible });
-  await browser.contextMenus.update(MENU_ALL_ID, { visible: visibleAll });
-  browser.contextMenus.refresh();
+  try {
+    await browser.contextMenus.update(MENU_ID, { visible });
+    await browser.contextMenus.update(MENU_ALL_ID, { visible: visibleAll });
+    await browser.contextMenus.refresh();
+  } catch (error) {
+    log.debug("Failed to update context menu visibility", tab?.id, error?.message);
+  }
 });
 
 /**
@@ -128,36 +132,46 @@ function getSourcePageLanguageCacheKey(tabId, pageUrl) {
 
 async function getSourcePageLanguage(tabId, pageUrl) {
   const cacheKey = getSourcePageLanguageCacheKey(tabId, pageUrl);
-  if (sourcePageLanguageCache.has(cacheKey)) {
-    return sourcePageLanguageCache.get(cacheKey);
+  const stored = await browser.storage.local.get(SOURCE_PAGE_LANGUAGES_KEY);
+  const languageCache = stored[SOURCE_PAGE_LANGUAGES_KEY] ?? {};
+  if (typeof languageCache[cacheKey] === "string" && languageCache[cacheKey]) {
+    return languageCache[cacheKey];
   }
 
-  const languagePromise = (async () => {
-    let sourcePageText = "";
-    try {
-      const response = await browser.tabs.sendMessage(tabId, {
-        type: "get-source-page-language-context",
-      });
-      sourcePageText = response?.sourcePageText ?? "";
-    } catch (error) {
-      log.debug("Failed to read source page language context", tabId, error?.message);
-      return "";
-    }
+  let sourcePageText = "";
+  try {
+    const response = await browser.tabs.sendMessage(tabId, {
+      type: "get-source-page-language-context",
+    });
+    sourcePageText = response?.sourcePageText ?? "";
+  } catch (error) {
+    log.debug("Failed to read source page language context", tabId, error?.message);
+    return "";
+  }
 
-    if (!sourcePageText.trim()) {
-      return "";
-    }
+  if (!sourcePageText.trim()) {
+    return "";
+  }
 
-    try {
-      return await detectLanguageFromSourcePage(sourcePageText);
-    } catch (error) {
-      log.warn("Source page language detection failed", error?.message);
-      return "";
-    }
-  })();
+  let detectedLanguage = "";
+  try {
+    detectedLanguage = await detectLanguageFromSourcePage(sourcePageText);
+  } catch (error) {
+    log.warn("Source page language detection failed", error?.message);
+    return "";
+  }
 
-  sourcePageLanguageCache.set(cacheKey, languagePromise);
-  return languagePromise;
+  if (!detectedLanguage) {
+    return "";
+  }
+
+  await browser.storage.local.set({
+    [SOURCE_PAGE_LANGUAGES_KEY]: {
+      ...languageCache,
+      [cacheKey]: detectedLanguage,
+    },
+  });
+  return detectedLanguage;
 }
 
 // ---------- Message handler: cache reads for content scripts ----------
