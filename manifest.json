@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Strip Clickbait",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Translate clickbait links into descriptive AI summaries.",
   "icons": {
     "16": "icons/icon-16.png",
@@ -10,16 +10,28 @@
     "96": "icons/icon-96.png",
     "128": "icons/icon-128.png"
   },
-  "permissions": ["contextMenus", "storage", "activeTab", "tabs", "<all_urls>"],
+  "permissions": [
+    "contextMenus",
+    "storage",
+    "activeTab",
+    "tabs",
+    "<all_urls>"
+  ],
   "background": {
-    "scripts": ["src/background/index.js"],
+    "scripts": [
+      "src/background/index.js"
+    ],
     "persistent": false,
     "type": "module"
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["src/content/index.js"],
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "src/content/index.js"
+      ],
       "run_at": "document_end"
     }
   ],

@@ -5,20 +5,26 @@
 A Firefox WebExtension (Manifest V2) that translates clickbait article link text into plain, descriptive AI summaries —
 right from the context menu.
 
-## What it does
+> [!INFO] API Key
+> 
+> You need to make an OpenAI API key. Token-wise, this plugin is almost free, but there needs to be _some_ money in the
+> account. The token never leaves your browser's local storage, so if you have multiple machines, you need to type it in
+> on each of them.
 
-**Phase 3 (current):**  
+## What it does
 
 1. Right-click any link → **Translate Clickbait**
 2. The extension fetches the linked article in the background.
 3. [OpenAI](https://platform.openai.com/) generates a concise, factual replacement title (≤ factor× the original title
    length; default: 2.0×).
 4. Results are cached in local storage for future visits to the same link.
+5. The link text on the current page will update immediately to show the AI title, prefixed with 🤖.
+6. Cached titles will be reapplied automatically on page load — no extra API calls needed.
 
-**Phase 4 (planned):**  
+## Setup
 
-- The link text on the current page will update immediately to show the AI title, prefixed with 🤖.
-- Cached titles will be reapplied automatically on page load — no extra API calls needed.
+After installing the add-on, go to the settings for the plugin and enter your API code. That's it; start right-clicking
+text links!
 
 ## Project structure
 
@@ -37,7 +43,7 @@ strip-clickbait/
 └── README.md
 ```
 
-## Local development
+## Local development/usage
 
 ### Prerequisites
 
