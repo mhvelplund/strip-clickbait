@@ -2,12 +2,14 @@ import {
   canonicalizeUrl,
   getEntry,
   setEntry,
+  getEntries,
   withDedup,
   isInFlight,
   getEntries,
 } from "./cache.js";
 import { extractArticle } from "./articleExtractor.js";
 import { generateTitle } from "./openaiClient.js";
+import { log } from "./logger.js";
 
 const MENU_ID = "translate-clickbait";
 
@@ -43,7 +45,8 @@ async function notifyTab(tabId, linkUrl, entry) {
       type: "translate-clickbait-result",
       payload: { linkUrl, entry },
     });
-  } catch {
+  } catch (err) {
+    log.debug("notifyTab: tab not reachable", tabId, err?.message);
     // Tab may have been closed or the content script may not be ready.
   }
 }
@@ -57,6 +60,7 @@ async function notifyTab(tabId, linkUrl, entry) {
  * @param {number} tabId         - Tab to notify.
  */
 async function summarizeAndCache(linkUrl, originalTitle, tabId) {
+  log.info("summarizeAndCache: started", linkUrl);
   // Mark as pending immediately so the content script can show a spinner.
   const pending = await setEntry(linkUrl, { status: "pending" });
   await notifyTab(tabId, linkUrl, pending);
@@ -68,10 +72,11 @@ async function summarizeAndCache(linkUrl, originalTitle, tabId) {
     // Use the page's <title> as a fallback if the link text is empty.
     const titleForPrompt = originalTitle.trim() || pageTitle || linkUrl;
     const aiTitle = await generateTitle(text, titleForPrompt);
+    log.info("summarizeAndCache: success", { linkUrl, aiTitle });
     const success = await setEntry(linkUrl, { status: "success", aiTitle });
     await notifyTab(tabId, linkUrl, success);
   } catch (error) {
-    console.error("Summarization failed", linkUrl, error);
+    log.error("summarizeAndCache: failed", linkUrl, error);
     const failed = await setEntry(linkUrl, {
       status: "failed",
       error: error.message ?? String(error),
