@@ -1,6 +1,14 @@
 const SETTINGS_KEY = "settings";
 const DIAGNOSTICS_KEY = "diagnosticsEnabled";
 const CACHE_KEY = "cache";
+const DEFAULT_MAX_LENGTH_FACTOR = 2.0;
+
+function parseMaxLengthFactor(value) {
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) && numericValue > 0
+    ? numericValue
+    : DEFAULT_MAX_LENGTH_FACTOR;
+}
 
 function setStatus(text, isError = false) {
   const status = document.getElementById("status");
@@ -16,8 +24,10 @@ async function loadSettings() {
   const settings = stored[SETTINGS_KEY] || {};
 
   document.getElementById("openai-api-key").value = settings.openaiApiKey || "";
-  document.getElementById("openai-model").value =
-    settings.openaiModel || "gpt-4o-mini";
+  document.getElementById("openai-model").value = "gpt-4o-mini";
+  document.getElementById("openai-max-length-factor").value = String(
+    parseMaxLengthFactor(settings.openaiMaxLengthFactor),
+  );
   document.getElementById("diagnostics").checked = Boolean(
     stored[DIAGNOSTICS_KEY],
   );
@@ -29,10 +39,13 @@ async function saveSettings(event) {
   const openaiApiKey = document.getElementById("openai-api-key").value.trim();
   const openaiModel =
     document.getElementById("openai-model").value.trim() || "gpt-4o-mini";
+  const openaiMaxLengthFactor = parseMaxLengthFactor(
+    document.getElementById("openai-max-length-factor").value.trim(),
+  );
   const diagnosticsEnabled = document.getElementById("diagnostics").checked;
 
   await browser.storage.local.set({
-    [SETTINGS_KEY]: { openaiApiKey, openaiModel },
+    [SETTINGS_KEY]: { openaiApiKey, openaiModel, openaiMaxLengthFactor },
     [DIAGNOSTICS_KEY]: diagnosticsEnabled,
   });
 

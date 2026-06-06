@@ -3,8 +3,8 @@
  *
  * Calls the chat/completions endpoint to produce a descriptive, non-clickbait
  * replacement title for an article.  The generated title is constrained to at
- * most floor(originalTitle.length * 1.5) characters.  If the model returns a
- * longer string it is hard-clamped here before the result is stored.
+ * most floor(originalTitle.length * maxLengthFactor) characters.  If the model
+ * returns a longer string it is hard-clamped here before the result is stored.
  */
 
 import { fetchWithTimeout, withRetry } from "./asyncUtils.js";
@@ -12,10 +12,18 @@ import { fetchWithTimeout, withRetry } from "./asyncUtils.js";
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 const SETTINGS_KEY = "settings";
 const API_TIMEOUT_MS = 30_000;
+const DEFAULT_MAX_LENGTH_FACTOR = 2.0;
+
+function normalizeMaxLengthFactor(value) {
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) && numericValue > 0
+    ? numericValue
+    : DEFAULT_MAX_LENGTH_FACTOR;
+}
 
 /**
  * Load the user's API key and model from storage.
- * @returns {Promise<{openaiApiKey: string, openaiModel: string}>}
+ * @returns {Promise<{openaiApiKey: string, openaiModel: string, openaiMaxLengthFactor: number}>}
  * @throws {Error} if no API key is configured.
  */
 async function loadSettings() {
@@ -29,6 +37,9 @@ async function loadSettings() {
   return {
     openaiApiKey: settings.openaiApiKey,
     openaiModel: settings.openaiModel || "gpt-4o-mini",
+    openaiMaxLengthFactor: normalizeMaxLengthFactor(
+      settings.openaiMaxLengthFactor,
+    ),
   };
 }
 
@@ -124,8 +135,9 @@ export async function generateTitle(
   originalTitle,
   articleLanguage = "",
 ) {
-  const { openaiApiKey, openaiModel } = await loadSettings();
-  const maxLength = Math.floor(originalTitle.length * 1.5);
+  const { openaiApiKey, openaiModel, openaiMaxLengthFactor } =
+    await loadSettings();
+  const maxLength = Math.floor(originalTitle.length * openaiMaxLengthFactor);
 
   const messages = buildMessages(
     articleText,
