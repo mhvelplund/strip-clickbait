@@ -11,33 +11,37 @@ async function loadSettings() {
   const settings = stored[SETTINGS_KEY] || {};
 
   document.getElementById("openai-api-key").value = settings.openaiApiKey || "";
-  document.getElementById("openai-model").value = settings.openaiModel || "gpt-4o-mini";
+  document.getElementById("openai-model").value =
+    settings.openaiModel || "gpt-4o-mini";
 }
 
 async function saveSettings(event) {
   event.preventDefault();
 
   const openaiApiKey = document.getElementById("openai-api-key").value.trim();
-  const openaiModel = document.getElementById("openai-model").value.trim() || "gpt-4o-mini";
+  const openaiModel =
+    document.getElementById("openai-model").value.trim() || "gpt-4o-mini";
 
   await browser.storage.local.set({
     [SETTINGS_KEY]: {
       openaiApiKey,
-      openaiModel
-    }
+      openaiModel,
+    },
   });
 
   setStatus("Settings saved.");
 }
 
-document.getElementById("settings-form").addEventListener("submit", async (event) => {
-  try {
-    await saveSettings(event);
-  } catch (error) {
-    console.error(error);
-    setStatus("Failed to save settings.", true);
-  }
-});
+document
+  .getElementById("settings-form")
+  .addEventListener("submit", async (event) => {
+    try {
+      await saveSettings(event);
+    } catch (error) {
+      console.error(error);
+      setStatus("Failed to save settings.", true);
+    }
+  });
 
 loadSettings().catch((error) => {
   console.error(error);

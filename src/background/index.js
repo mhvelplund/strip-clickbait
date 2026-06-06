@@ -5,7 +5,7 @@ function createContextMenu() {
     browser.contextMenus.create({
       id: MENU_ID,
       title: "Translate Clickbait",
-      contexts: ["link"]
+      contexts: ["link"],
     });
   });
 }
@@ -19,14 +19,19 @@ browser.runtime.onStartup.addListener(() => {
 });
 
 browser.contextMenus.onClicked.addListener(async (info, tab) => {
-  if (info.menuItemId !== MENU_ID || !info.linkUrl || !tab || typeof tab.id !== "number") {
+  if (
+    info.menuItemId !== MENU_ID ||
+    !info.linkUrl ||
+    !tab ||
+    typeof tab.id !== "number"
+  ) {
     return;
   }
 
   const clickContext = {
     linkUrl: info.linkUrl,
     sourceTabId: tab.id,
-    pageUrl: info.pageUrl || tab.url || null
+    pageUrl: info.pageUrl || tab.url || null,
   };
 
   console.debug("Translate Clickbait requested", clickContext);
@@ -34,7 +39,7 @@ browser.contextMenus.onClicked.addListener(async (info, tab) => {
   try {
     await browser.tabs.sendMessage(tab.id, {
       type: "translate-clickbait-requested",
-      payload: clickContext
+      payload: clickContext,
     });
   } catch (error) {
     console.debug("Content script not ready for tab", tab.id, error);
